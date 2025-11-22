@@ -339,7 +339,8 @@
                     </div>
                 </div>
                 <div class="mt-3 p-2 bg-secondary bg-opacity-25 rounded">
-                    <strong>💡 ヒント:</strong> ハテナブロックの上からヒップドロップすると、アイテムを出せます！
+                    <strong>💡 ヒント:</strong> ハテナブロックの上からヒップドロップすると、アイテムを出せます！<br>
+                    <strong>💀 敵:</strong> 茶色い猫は敵です。上から踏めば倒せますが、横から当たるとダメージを受けます。
                 </div>
             </div>
             <button class="btn btn-light fw-bold w-100" onclick="showMenu()">閉じる</button>
@@ -438,9 +439,9 @@ const TILE_SIZE = 40;
 
 // Data
 let gameData = { lives: 10, coins: 0, maxReachedLevel: 1, history: [], bestTimes: {}, settings: { initialLives: 10 } };
-const saved = localStorage.getItem('panicCat_save_v6');
+const saved = localStorage.getItem('panicCat_save_v7');
 if(saved) { try { gameData = { ...gameData, ...JSON.parse(saved) }; } catch(e){} }
-function saveData() { localStorage.setItem('panicCat_save_v6', JSON.stringify(gameData)); }
+function saveData() { localStorage.setItem('panicCat_save_v7', JSON.stringify(gameData)); }
 
 // Constants
 const GRAVITY = 0.6; const FRICTION = 0.82; const JUMP_FORCE = 12.5; 
@@ -463,7 +464,7 @@ let frameCount = 0;
 let trail = [];
 
 // Objects
-let levelMap = []; let items = []; let particles = [];
+let levelMap = []; let items = []; let particles = []; let enemies = [];
 let activeBlocks = {}; 
 let goalPole = { x:0, y:0, h:0, flagY:0 };
 let player = { x:0, y:0, w:30, h:24, crouchH:14, vx:0, vy:0, grounded:false, facingRight:true, dead:false, isBig:false, invincible:0, crouching:false, jumpCount:0, isHipDropping:false, respawnX:100, respawnY:200 };
@@ -509,6 +510,8 @@ function updateMenuDisplay() {
     document.getElementById('lives-val').innerText = gameData.settings.initialLives;
     document.getElementById('max-reached-display').innerText = "到達: Lv." + fmt(gameData.maxReachedLevel);
     document.getElementById('cont-level-display').innerText = fmt(gameData.maxReachedLevel);
+    // Menu opens to max reached level by default
+    document.getElementById('level-input').value = gameData.maxReachedLevel;
     generateLevelList();
 }
 
@@ -532,7 +535,7 @@ function resizeCanvas() {
     mm.width = mm.clientWidth*dpr; mm.height = mm.clientHeight*dpr;
     const rm = document.getElementById('result-map-canvas');
     rm.width = rm.clientWidth*dpr; rm.height = rm.clientHeight*dpr;
-    const hm = document.getElementById('history-route-canvas'); // Add this
+    const hm = document.getElementById('history-route-canvas'); 
     if(hm) { hm.width = hm.clientWidth*dpr; hm.height = hm.clientHeight*dpr; }
 }
 
@@ -620,7 +623,6 @@ function setCheatLives() {
     const val = parseInt(document.getElementById('cheat-life-val').value);
     if(!isNaN(val) && val >= 0) { gameData.lives = val; saveData(); updateHUD(); alert(`残機を ${val} に設定しました`); }
 }
-function addCheatCoins() { gameData.coins += 10000; saveData(); showCheats(); }
 
 function showHistory() {
     const tbody = document.getElementById('history-table-body');
@@ -654,34 +656,23 @@ function viewHistoryRoute(index) {
 /** LEVEL UTILS **/
 function generateLevelList() {
     const list = document.getElementById('level-list');
-    if(!list) return;
-    list.innerHTML = '';
+    if(list) list.innerHTML = ''; // This list doesn't strictly exist in DOM structure but good for extensibility
     const max = activeCheats.unlock ? 100 : Math.min(10000, gameData.maxReachedLevel + 9);
-    for(let i=1; i<=max; i++) {
-        const btn = document.createElement('div');
-        btn.className = 'level-btn';
-        const medal = gameData.bestTimes[i] ? ' <i class="bi bi-star-fill text-warning small"></i>' : '';
-        if(i <= gameData.maxReachedLevel || activeCheats.unlock) {
-            btn.classList.add('unlocked'); btn.innerHTML = i + medal; btn.onclick = () => startGame(i);
-        } else {
-            btn.classList.add('locked'); btn.innerHTML = '<i class="bi bi-lock-fill"></i>';
-        }
-        list.appendChild(btn);
-    }
+    // Note: Visual button list removed in favor of input box but function kept for potential restoration
 }
 
 function adjustLevelInput(d) { const i = document.getElementById('level-input'); let v = parseInt(i.value)+d; if(v<1)v=1; if(v>10000)v=10000; i.value=v; }
 function startGameFromInput() { const v = parseInt(document.getElementById('level-input').value); if(v>=1&&v<=10000){ if(v<=gameData.maxReachedLevel||activeCheats.unlock) startGame(v); else alert("まだ解放されていません"); } }
 function copySeed() { navigator.clipboard.writeText(currentSeed).then(()=>alert(`SEED: ${currentSeed} コピーしました`)); }
-function showMenu() { gameState = 'MENU'; generateLevelList(); showPanel('menu-panel'); isTimerRunning = false; }
+function showMenu() { 
+    gameState = 'MENU'; 
+    updateMenuDisplay();
+    showPanel('menu-panel'); 
+    isTimerRunning = false; 
+}
 function startGame(lv) { 
     currentLevel = lv; 
     if(gameState==='MENU' && gameData.lives <= 0) {
-        // If starting fresh and no lives, reset to default (or should we force init?)
-        // Prompt says "lives never revive unless initialized or bought".
-        // But if it's a new game from menu and you have 0 lives, you can't play.
-        // Assuming player should use Initialize button if stuck at 0 in menu.
-        // However, to prevent softlock for new players:
         if(gameData.lives === 0 && gameData.coins < 100) {
              alert("残機がありません。初期化するかチートを使用してください。");
              return;
@@ -692,16 +683,15 @@ function startGame(lv) {
     resetLevel(true); showPanel(null); gameState='PLAYING'; startTimer(); 
 }
 function retryGame() { 
-    // Lives are NOT reset here based on request.
     if(gameData.lives <= 0 && !allowNegativeLives && !activeCheats.god) {
-        return; // Should be disabled button anyway
+        return; 
     }
     allowNegativeLives=false; player.respawnX=100; player.respawnY=200; 
     resetLevel(true); showPanel(null); gameState='PLAYING'; startTimer(); 
 }
 function resetAllData() {
     if(confirm("本当に全てのデータを初期化しますか？")) {
-        localStorage.removeItem('panicCat_save_v6');
+        localStorage.removeItem('panicCat_save_v7');
         location.reload();
     }
 }
@@ -719,6 +709,7 @@ function togglePause() {
 
 /** GAME LOGIC **/
 function resetLevel(fullReset) {
+    enemies = []; // Reset enemies
     generateWorld(currentLevel);
     player.x=player.respawnX; player.y=player.respawnY; player.vx=0; player.vy=0; player.dead=false; player.grounded=false; player.isBig=false; player.invincible=0; player.crouching=false; player.jumpCount=0; player.isHipDropping=false;
     items=[]; particles=[]; keys.jumpPressed=false; keys.hipPressed=false; goalPole.flagY=0;
@@ -728,13 +719,28 @@ function generateWorld(lv) {
     let seed = currentSeed; const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
     const randInt = (min, max) => Math.floor(rand() * (max - min + 1)) + min;
     const width = 200 + (lv * 5); const height = 15; levelMap = Array(height).fill().map(() => Array(width).fill(T.EMPTY)); const gY = 11;
-    activeBlocks = {}; // Reset multi-hit state
+    activeBlocks = {}; 
     for(let x=0; x<15; x++) for(let y=gY; y<height; y++) levelMap[y][x] = T.GROUND;
     let cx = 15; const midPoint = Math.floor(width/2); let checkPointSet = false;
     while(cx < width - 20) {
         if(!checkPointSet && cx >= midPoint) { for(let k=0; k<6; k++) for(let y=gY; y<height; y++) levelMap[y][cx+k] = T.GROUND; levelMap[gY-1][cx+3] = T.CHECKPOINT; checkPointSet = true; cx += 6; continue; }
         const pat = randInt(0, 9); const len = randInt(8, 12);
-        if(pat !== 1 && pat !== 7) { for(let x=0; x<len; x++) { let t = T.GROUND; if(rand() < 0.1) t = T.FALLING; else if (rand() < 0.05) t = T.FAKE; levelMap[gY][cx+x] = t; for(let y=gY+1; y<height; y++) levelMap[y][cx+x] = T.GROUND; if(rand() < 0.3) levelMap[gY-4][cx+x] = T.COIN; } }
+        
+        // Spawn ground
+        if(pat !== 1 && pat !== 7) { 
+            for(let x=0; x<len; x++) { 
+                let t = T.GROUND; if(rand() < 0.1) t = T.FALLING; else if (rand() < 0.05) t = T.FAKE; 
+                levelMap[gY][cx+x] = t; 
+                for(let y=gY+1; y<height; y++) levelMap[y][cx+x] = T.GROUND; 
+                if(rand() < 0.3) levelMap[gY-4][cx+x] = T.COIN; 
+                
+                // Spawn Enemy Chance (Normal ground only)
+                if(t === T.GROUND && rand() < 0.08 && x > 2 && x < len - 2) {
+                    spawnEnemy((cx+x)*TILE_SIZE, (gY-1)*TILE_SIZE);
+                }
+            } 
+        }
+
         switch(pat) {
             case 0: if(rand()<0.5) { const bx = cx + randInt(3, len-3); levelMap[gY-4][bx] = T.Q_BLOCK; levelMap[gY-4][bx-1] = T.HIDDEN; levelMap[gY-4][bx+1] = T.HIDDEN; if(levelMap[gY][bx] !== T.FAKE) levelMap[gY-1][bx] = T.SPIKE; } break;
             case 1: levelMap[gY-2][cx] = T.BLOCK; levelMap[gY-2][cx+1] = T.BLOCK; levelMap[gY-3][cx+Math.floor(len/2)] = T.FALLING; levelMap[gY-2][cx+len-1] = T.BLOCK; if(rand()<0.3) levelMap[gY-5][cx+Math.floor(len/2)] = T.HIDDEN; levelMap[gY-4][cx+Math.floor(len/2)] = T.COIN; break;
@@ -796,8 +802,65 @@ function update() {
     if(player.y > GAME_HEIGHT + 100) die();
     if(player.invincible > 0) player.invincible--;
     updateItems();
+    updateEnemies();
     if(frameCount%5===0 && !player.dead) trail.push({x: player.x+player.w/2, y: player.y+player.h/2});
     frameCount++;
+}
+
+function spawnEnemy(x, y) {
+    enemies.push({ x: x, y: y, w: 30, h: 30, vx: -1.5, vy: 0, dead: false });
+}
+
+function updateEnemies() {
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        let e = enemies[i];
+        if (e.dead) { enemies.splice(i, 1); continue; }
+        
+        e.vy += GRAVITY;
+        e.x += e.vx;
+        
+        // Map Collision X
+        let startX = Math.floor(e.x/TILE_SIZE), endX = Math.floor((e.x+e.w-0.1)/TILE_SIZE);
+        let startY = Math.floor(e.y/TILE_SIZE), endY = Math.floor((e.y+e.h-0.1)/TILE_SIZE);
+        let collisionX = false;
+        
+        for(let y=startY; y<=endY; y++) for(let x=startX; x<=endX; x++) {
+            if(isSolid(getTile(x, y))) collisionX = true;
+        }
+        if(collisionX) {
+            e.vx *= -1; // Turn around
+            e.x += e.vx * 2;
+        }
+
+        e.y += e.vy;
+        
+        // Map Collision Y
+        startX = Math.floor(e.x/TILE_SIZE); endX = Math.floor((e.x+e.w-0.1)/TILE_SIZE);
+        startY = Math.floor(e.y/TILE_SIZE); endY = Math.floor((e.y+e.h-0.1)/TILE_SIZE);
+        for(let y=startY; y<=endY; y++) for(let x=startX; x<=endX; x++) {
+            if(isSolid(getTile(x, y))) {
+                if(e.vy > 0) {
+                    e.y = y * TILE_SIZE - e.h;
+                    e.vy = 0;
+                }
+            }
+        }
+
+        if (e.y > GAME_HEIGHT + 100) { enemies.splice(i, 1); continue; }
+
+        // Player Collision
+        if (intersect(player, e) && !player.dead) {
+            // Check if player landed on top (Mario style)
+            if (player.vy > 0 && player.y + player.h < e.y + e.h / 2 + 10) {
+                e.dead = true;
+                player.vy = -8; // Bounce
+                spawnParticles(e.x, e.y, '#8B4513');
+                if(!activeCheats.infiniteCoins) gameData.coins += 5; // Bonus
+            } else {
+                hitDamage();
+            }
+        }
+    }
 }
 
 function performHipDrop() { if(!player.grounded) { player.vy = HIP_DROP_SPEED; player.isHipDropping = true; } }
@@ -885,7 +948,36 @@ function hitDamage() { if(activeCheats.god || player.invincible>0) return; if(pl
 function die() { if(activeCheats.god || player.dead) return; player.dead = true; player.vy = -12; isTimerRunning = false; trail.push(null); saveData(); setTimeout(() => { const cur = activeCheats.god ? '∞' : fmt(gameData.lives); const nxt = activeCheats.god ? '∞' : fmt(gameData.lives - 1); document.getElementById('dead-lives-info').innerText = `❤️ ${cur} → ${nxt}`; if(gameData.lives <= 0 && !allowNegativeLives && !activeCheats.god) { document.getElementById('go-retry-btn').disabled=true; showPanel('gameover-panel'); } else showPanel('dead-panel'); }, 800); }
 function respawnPlayer() { if(player.dead) { if(!activeCheats.god && !allowNegativeLives) gameData.lives--; if(allowNegativeLives) gameData.lives--; } if(gameData.lives < 0 && !allowNegativeLives) { showPanel('gameover-panel'); return; } saveData(); resetLevel(false); showPanel(null); gameState = 'PLAYING'; isTimerRunning = true; }
 function continueNegative() { allowNegativeLives = true; respawnPlayer(); }
-function levelClear() { isTimerRunning = false; gameState = 'CLEARED'; if(currentLevel > gameData.maxReachedLevel && !activeCheats.unlock) { gameData.maxReachedLevel = currentLevel; } document.getElementById('result-time').innerText = formatTime(elapsedTime); let isNewRecord = false; if(!activeCheats.god && !activeCheats.flight) { if(!gameData.bestTimes[currentLevel] || elapsedTime < gameData.bestTimes[currentLevel]) { gameData.bestTimes[currentLevel] = elapsedTime; isNewRecord = true; } } document.getElementById('new-record-msg').style.display = isNewRecord ? 'block' : 'none'; const earned = activeCheats.infiniteCoins ? "∞" : fmt(gameData.coins - levelStartCoins); document.getElementById('result-coins').innerText = earned; document.getElementById('result-life-diff').innerText = `${fmt(levelStartLives)} → ${fmt(gameData.lives)}`; const now = new Date(); gameData.history.push({ date: `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`, level: currentLevel, time: formatTime(elapsedTime), coins: gameData.coins, lives: gameData.lives, trail: [...trail] }); saveData(); setTimeout(drawResultMap, 100); showPanel('clear-panel'); }
+
+function levelClear() { 
+    isTimerRunning = false; 
+    gameState = 'CLEARED'; 
+    
+    // FIX: Update if current level is equal to or greater than current max reached
+    if(currentLevel >= gameData.maxReachedLevel && !activeCheats.unlock) { 
+        gameData.maxReachedLevel = currentLevel + 1; 
+    } 
+    
+    document.getElementById('result-time').innerText = formatTime(elapsedTime); 
+    let isNewRecord = false; 
+    if(!activeCheats.god && !activeCheats.flight) { 
+        if(!gameData.bestTimes[currentLevel] || elapsedTime < gameData.bestTimes[currentLevel]) { 
+            gameData.bestTimes[currentLevel] = elapsedTime; 
+            isNewRecord = true; 
+        } 
+    } 
+    document.getElementById('new-record-msg').style.display = isNewRecord ? 'block' : 'none'; 
+    const earned = activeCheats.infiniteCoins ? "∞" : fmt(gameData.coins - levelStartCoins); 
+    document.getElementById('result-coins').innerText = earned; 
+    document.getElementById('result-life-diff').innerText = `${fmt(levelStartLives)} → ${fmt(gameData.lives)}`; 
+    
+    const now = new Date(); 
+    gameData.history.push({ date: `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`, level: currentLevel, time: formatTime(elapsedTime), coins: gameData.coins, lives: gameData.lives, trail: [...trail] }); 
+    saveData(); 
+    setTimeout(drawResultMap, 100); 
+    showPanel('clear-panel'); 
+}
+
 function confirmSuicide() { isTimerRunning = false; const cur = activeCheats.god?'∞':fmt(gameData.lives); const nxt = activeCheats.god?'∞':fmt(gameData.lives-1); document.getElementById('suicide-life-calc').innerText = `${cur} → ${nxt}`; showPanel('suicide-panel'); }
 function closeSuicide() { showPanel(null); isTimerRunning = true; }
 function executeSuicide() { if(!activeCheats.god && !allowNegativeLives) gameData.lives--; if(allowNegativeLives) gameData.lives--; saveData(); if(gameData.lives < 0 && !allowNegativeLives) showPanel('gameover-panel'); else respawnPlayer(); }
@@ -901,6 +993,7 @@ function draw() {
     for(let y=0; y<levelMap.length; y++) for(let x=startCol; x<=endCol; x++) if(x>=0 && x<levelMap[0].length) drawTile(ctx, x, y, levelMap[y][x]);
     if(goalPole.x > camX - 50 && goalPole.x < camX + GAME_WIDTH + 50) drawGoalPole(ctx);
     for(let it of items) drawItem(it);
+    for(let en of enemies) drawEnemy(en);
     if(!player.dead || frameCount%2===0) { if(player.invincible%4 < 2) drawCat(player); }
     for(let p of particles) { p.x+=p.vx; p.y+=p.vy; p.life--; ctx.fillStyle=p.color; ctx.fillRect(p.x,p.y,6,6); }
     particles = particles.filter(p => p.life > 0);
@@ -948,6 +1041,50 @@ function drawCat(p) {
     ctx.fillStyle='#FFF'; if(Math.abs(p.vx)>0.1 && !p.dead) { const l = Math.sin(frameCount*0.8)*4; ctx.beginPath(); ctx.arc(-6+l,12,3,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(6-l,12,3,0,Math.PI*2); ctx.fill(); } else { ctx.beginPath(); ctx.arc(-6,12,3,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(6,12,3,0,Math.PI*2); ctx.fill(); }
     ctx.restore();
 }
+
+function drawEnemy(e) {
+    const cx = e.x + e.w/2;
+    const cy = e.y + e.h/2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    if(e.vx > 0) ctx.scale(-1, 1); // Flip based on direction
+    
+    // Body (Brown Cat)
+    ctx.fillStyle = '#8B4513';
+    ctx.beginPath(); ctx.ellipse(0, 4, 13, 10, 0, 0, Math.PI*2); ctx.fill();
+    
+    // Head
+    ctx.beginPath(); ctx.arc(8, -4, 10, 0, Math.PI*2); ctx.fill();
+    
+    // Ears
+    ctx.beginPath(); ctx.moveTo(4, -10); ctx.lineTo(2, -18); ctx.lineTo(12, -10); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(14, -10); ctx.lineTo(16, -18); ctx.lineTo(8, -10); ctx.fill();
+
+    // Angry Eyes
+    ctx.fillStyle = '#FFD700'; // Yellow eyes
+    ctx.beginPath(); ctx.arc(6, -5, 2.5, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(12, -5, 2.5, 0, Math.PI*2); ctx.fill();
+    
+    // Pupils
+    ctx.fillStyle = 'black';
+    ctx.beginPath(); ctx.arc(6, -5, 1, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(12, -5, 1, 0, Math.PI*2); ctx.fill();
+
+    // Angry Eyebrows
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(4, -9); ctx.lineTo(8, -6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(14, -9); ctx.lineTo(10, -6); ctx.stroke();
+
+    // Feet animation
+    ctx.fillStyle = '#5A2E0E';
+    const l = Math.sin(frameCount * 0.5) * 5;
+    ctx.beginPath(); ctx.arc(-5 + l, 12, 3.5, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5 - l, 12, 3.5, 0, Math.PI*2); ctx.fill();
+
+    ctx.restore();
+}
+
 function drawTile(c, x, y, t) {
     const px=x*TILE_SIZE, py=y*TILE_SIZE;
     if(t===T.HIDDEN||t===T.INVISIBLE_DEATH||t===T.HIDDEN_TRIGGER) return;

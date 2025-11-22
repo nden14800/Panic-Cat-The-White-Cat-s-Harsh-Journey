@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>パニックキャット - 白い猫の過酷な旅</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;800&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            margin: 0; padding: 0;
+            background-color: #212529;
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            overflow: hidden; touch-action: none;
+            height: 100vh; display: flex;
+            justify-content: center; align-items: center;
+            color: white; user-select: none;
+        }
+
+        #game-wrapper {
+            position: relative; width: 100%; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            background-color: #333;
+        }
+
+        canvas#gameCanvas {
+            display: block; box-shadow: 0 0 40px rgba(0,0,0,0.6);
+            background-color: #87CEEB;
+        }
+
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; display: flex; justify-content: center; align-items: center;
+            z-index: 100;
+        }
+
+        /* UI Panels */
+        .game-panel {
+            background: rgba(20, 20, 20, 0.96); padding: 1.5rem;
+            border-radius: 1rem; text-align: center; pointer-events: auto;
+            border: 3px solid #fff;
+            min-width: 600px; max-width: 95%; max-height: 95%;
+            overflow-y: auto; display: none;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.9); backdrop-filter: blur(5px);
+        }
+        @media (max-width: 650px) { .game-panel { min-width: 95%; } }
+        .game-panel.active { display: block; animation: popIn 0.2s ease-out; }
+        @keyframes popIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+        h1 { color: #FFD700; text-shadow: 3px 3px 0 #000; font-weight: 800; margin-bottom: 0.5rem; }
+        h2 { font-size: 1.1rem; color: #ccc; margin-bottom: 1.5rem; }
+
+        /* HUD */
+        #hud {
+            position: absolute; top: 15px; left: 20px;
+            display: flex; flex-direction: column; gap: 5px;
+            font-size: 20px; font-weight: 900;
+            text-shadow: 2px 2px 0px black, -1px -1px 0 #000;
+            pointer-events: none; z-index: 10;
+        }
+        .hud-row { display: flex; gap: 15px; align-items: center; }
+
+        /* Pause Button */
+        #pause-container {
+            position: absolute; top: 15px; right: 240px;
+            pointer-events: auto; z-index: 11; display: none;
+        }
+        .hud-btn {
+            background: rgba(0,0,0,0.5); border: 2px solid white; color: white;
+            width: 40px; height: 40px; border-radius: 8px; font-size: 20px;
+            cursor: pointer; display: flex; justify-content: center; align-items: center;
+            transition: background 0.1s;
+        }
+        .hud-btn:hover { background: rgba(255,255,255,0.2); }
+
+        /* Suicide Button */
+        #suicide-btn {
+            pointer-events: auto; background: #333; border: 2px solid #ff4444; color: #ff4444;
+            width: 40px; height: 40px; border-radius: 50%; display: flex;
+            justify-content: center; align-items: center; cursor: pointer; font-size: 20px;
+        }
+        #suicide-btn:active { transform: scale(0.9); background: #500; }
+
+        /* Mini Map */
+        #minimap-container {
+            position: absolute; top: 15px; right: 15px;
+            width: 200px; height: 70px;
+            background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(255, 255, 255, 0.8);
+            border-radius: 8px; pointer-events: none; z-index: 10;
+        }
+        #minimap-canvas { width: 100%; height: 100%; display: block; border-radius: 6px; }
+        
+        /* Route Map Canvas */
+        #result-map-canvas, #history-route-canvas { 
+            width: 100%; height: 150px; background: #87CEEB; border: 2px solid #fff; margin-bottom: 10px; border-radius: 8px; 
+        }
+
+        /* Level Grid */
+        .level-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 8px;
+            margin-bottom: 20px; max-height: 200px; overflow-y: auto;
+            padding: 10px; background: rgba(0,0,0,0.4); border-radius: 10px;
+        }
+        .level-btn {
+            aspect-ratio: 1; display: flex; justify-content: center; align-items: center;
+            background: #495057; border: 2px solid #6c757d; border-radius: 8px;
+            color: white; cursor: pointer; font-weight: bold; font-size: 1.1rem; transition: all 0.1s;
+        }
+        .level-btn.unlocked { background: #0d6efd; border-color: #0a58ca; box-shadow: 0 4px 0 #084298; }
+        .level-btn.unlocked:active { transform: translateY(4px); box-shadow: none; }
+        .level-btn.locked { opacity: 0.5; cursor: not-allowed; }
+
+        /* Scroll Box */
+        .scroll-box { max-height: 350px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 5px; padding: 5px; }
+        
+        /* Shop Items */
+        .shop-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #444; }
+        .shop-item:last-child { border-bottom: none; }
+        .price-container { text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
+        .old-price { position: relative; color: #999; font-size: 0.9rem; display: inline-block; margin-right: 8px; }
+        .old-price::before { content: ''; position: absolute; left: 0; top: 50%; width: 100%; height: 2px; background: #ff4444; transform: rotate(-10deg); }
+        .new-price { font-family: monospace; font-weight: bold; color: #FFD700; font-size: 1.2rem; }
+        .discount-badge { background: #e91e63; color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; margin-left: 5px; vertical-align: text-top; }
+        .saved-text { font-size: 0.75rem; color: #00ff88; display: block; text-align: right; }
+        .coin-calc { font-size: 0.8rem; color: #aaa; }
+
+        /* Mobile Controls */
+        #mobile-controls {
+            position: absolute; bottom: 10px; left: 0; width: 100%; height: 140px;
+            pointer-events: none; display: none; justify-content: space-between;
+            padding: 0 20px; box-sizing: border-box; z-index: 50;
+        }
+        .control-group { pointer-events: auto; display: flex; gap: 10px; align-items: flex-end; padding-bottom: 10px; }
+        .control-btn {
+            background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%; width: 60px; height: 60px;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 24px; color: white; backdrop-filter: blur(4px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); user-select: none;
+        }
+        .control-btn:active, .control-btn.pressed { background: rgba(255, 255, 255, 0.4); transform: scale(0.95); }
+        .btn-action { width: 80px; height: 80px; font-size: 16px; font-weight: bold; border-radius: 20px; }
+        .btn-jump { background: rgba(255, 60, 60, 0.4); border-color: #ffcccc; }
+        .btn-sub { background: rgba(60, 255, 60, 0.4); border-color: #ccffcc; border-radius: 50%; width: 55px; height: 55px; font-size: 12px; margin-bottom: 5px; }
+        .btn-hip { background: rgba(60, 60, 255, 0.4); border-color: #ccccff; }
+
+        .status-badge { background: #e91e63; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; animation: pulse 1s infinite; display: none; }
+        @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
+
+        .cheat-warning-box { border: 2px solid #ff4444; background: rgba(50, 0, 0, 0.8); color: #ffcccc; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-size: 0.9rem; text-align: left; }
+        .cheat-warning-title { font-weight: bold; color: #ff4444; font-size: 1.1rem; margin-bottom: 5px; display: block;}
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- HUD -->
+    <div id="hud">
+        <div class="hud-row">
+            <div id="suicide-btn" onclick="confirmSuicide()"><i class="bi bi-skull-fill"></i></div>
+            <div><i class="bi bi-flag-fill" style="color:#FFD700;"></i> <span id="disp-level">1</span></div>
+            <div><i class="bi bi-heart-fill" style="color:#ff4d4d;"></i> <span id="disp-lives">10</span></div>
+            <div><i class="bi bi-circle-fill text-warning"></i> <span id="disp-coins">0</span></div>
+        </div>
+        <div class="hud-row">
+            <div style="font-size: 24px; color: #00ffcc;"><i class="bi bi-stopwatch"></i> <span id="disp-time">00:00.00</span></div>
+            <div id="cheat-status" class="status-badge">CHEAT</div>
+        </div>
+    </div>
+
+    <!-- Pause Button -->
+    <div id="pause-container">
+        <button class="hud-btn" onclick="togglePause()"><i class="bi bi-pause-fill"></i></button>
+    </div>
+
+    <!-- Mini Map -->
+    <div id="minimap-container"><canvas id="minimap-canvas"></canvas></div>
+
+    <div id="ui-layer">
+        <!-- Main Menu -->
+        <div id="menu-panel" class="game-panel active">
+            <h1>パニックキャット</h1>
+            <h2>白い猫の過酷な旅</h2>
+            
+            <div class="d-flex justify-content-center gap-2 mb-3 flex-wrap">
+                <button class="btn btn-info btn-sm fw-bold px-4" onclick="showHelp()"><i class="bi bi-question-circle"></i> 遊び方</button>
+                <button class="btn btn-success btn-sm fw-bold px-4" onclick="showShop()"><i class="bi bi-cart-fill"></i> ショップ</button>
+                <button class="btn btn-secondary btn-sm fw-bold px-4" onclick="showHistory()"><i class="bi bi-clock-history"></i> 履歴</button>
+                <button class="btn btn-danger btn-sm fw-bold px-4" onclick="showCheats()"><i class="bi bi-lightning-fill"></i> チート</button>
+            </div>
+
+            <div class="seed-box bg-dark p-2 rounded border border-secondary mb-3 d-inline-block">
+                <span class="font-monospace">SEED: <span id="menu-seed-val">---</span></span>
+                <i class="bi bi-clipboard copy-btn ms-2 text-primary" style="cursor:pointer" onclick="copySeed()" title="コピー"></i>
+            </div>
+
+            <!-- Level Select -->
+            <div class="bg-dark p-3 rounded border border-secondary mb-3 mx-auto" style="max-width: 500px;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="small text-light">レベル選択 (1 - 10,000)</span>
+                    <span class="small text-warning" id="max-reached-display">到達: Lv.1</span>
+                </div>
+                <div class="input-group mb-2">
+                    <button class="btn btn-outline-light" onclick="adjustLevelInput(-1)">-</button>
+                    <input type="number" id="level-input" class="form-control text-center fw-bold bg-dark text-light" value="1" min="1" max="10000">
+                    <button class="btn btn-outline-light" onclick="adjustLevelInput(1)">+</button>
+                </div>
+                <button class="btn btn-warning w-100 fw-bold" onclick="startGameFromInput()">
+                    <i class="bi bi-play-fill"></i> このレベルでスタート
+                </button>
+            </div>
+
+            <div class="mb-3 text-start bg-dark p-2 rounded border border-secondary mx-auto" style="max-width: 500px;">
+                <label class="form-label text-warning mb-0 small">初期残機設定: <span id="lives-val">10</span></label>
+                <input type="range" class="form-range mt-1" min="1" max="100" value="10" id="lives-range">
+                <div class="text-muted small">※この設定は初期化時のみ適用されます</div>
+            </div>
+
+            <div class="d-grid gap-2 mx-auto" style="max-width: 500px;">
+                <button class="btn btn-warning btn-lg fw-bold py-3" style="box-shadow: 0 4px 0 #b48900;" onclick="startGame(gameData.maxReachedLevel)">
+                    <i class="bi bi-play-fill"></i> 続きから遊ぶ (Lv.<span id="cont-level-display">1</span>)
+                </button>
+                <button class="btn btn-danger btn-sm fw-bold mt-3" onclick="resetAllData()">
+                    <i class="bi bi-trash"></i> データ初期化
+                </button>
+            </div>
+        </div>
+
+        <!-- Shop Panel -->
+        <div id="shop-panel" class="game-panel">
+            <h3 class="text-warning fw-bold"><i class="bi bi-cart-fill"></i> アイテムショップ</h3>
+            <div class="d-flex justify-content-between bg-dark p-3 rounded mb-3 border border-secondary">
+                <span class="fs-5">所持コイン:</span>
+                <span class="text-warning fw-bold fs-4" id="shop-coins">0</span>
+            </div>
+            <div class="scroll-box mb-3" id="shop-list"></div>
+            <button class="btn btn-light fw-bold w-100" onclick="showMenu()">戻る</button>
+        </div>
+
+        <!-- History Panel -->
+        <div id="history-panel" class="game-panel" style="max-width: 800px;">
+            <h3 class="text-secondary fw-bold"><i class="bi bi-journal-text"></i> プレイ履歴</h3>
+            <div class="scroll-box mb-3">
+                <table class="table table-dark table-sm table-striped text-start small mb-0" style="vertical-align: middle;">
+                    <thead><tr><th>日時</th><th>LV</th><th>Time</th><th>Coin</th><th>Life</th><th>Map</th></tr></thead>
+                    <tbody id="history-table-body"></tbody>
+                </table>
+            </div>
+            <button class="btn btn-light fw-bold w-100" onclick="showMenu()">戻る</button>
+        </div>
+
+        <!-- Route View Modal -->
+        <div id="route-view-panel" class="game-panel">
+            <h3 class="text-primary fw-bold">ルート確認</h3>
+            <p class="mb-2 text-secondary">Level <span id="route-view-level"></span></p>
+            <div class="bg-dark p-2 rounded mb-3 border border-secondary">
+                <canvas id="history-route-canvas"></canvas>
+            </div>
+            <button class="btn btn-light fw-bold w-100" onclick="showHistory()">戻る</button>
+        </div>
+
+        <!-- Cheat Settings -->
+        <div id="cheat-panel" class="game-panel">
+            <h3 class="text-danger fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> チート設定</h3>
+            <div class="cheat-warning-box mx-auto" style="max-width: 600px;">
+                <span class="cheat-warning-title">⚠️ 重要事項</span>
+                チート機能を使用すると、ゲームの難易度が崩壊します。<br>
+                ・クリアしても「ベストタイム」は記録されません。<br>
+            </div>
+            <div class="text-start bg-dark p-3 rounded border border-secondary mb-3 d-grid gap-2 mx-auto" style="max-width: 600px; grid-template-columns: 1fr 1fr;">
+                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="cheat-flight"><label class="form-check-label" for="cheat-flight">空を飛ぶ</label></div>
+                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="cheat-god"><label class="form-check-label" for="cheat-god">無敵モード</label></div>
+                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="cheat-speed"><label class="form-check-label" for="cheat-speed">超スピード</label></div>
+                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="cheat-infinite"><label class="form-check-label" for="cheat-infinite">無限ジャンプ</label></div>
+                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="cheat-inf-coin"><label class="form-check-label" for="cheat-inf-coin">コイン無限 (∞)</label></div>
+                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="cheat-unlock" onchange="generateLevelList()"><label class="form-check-label" for="cheat-unlock">全レベル開放</label></div>
+            </div>
+            <div class="bg-dark p-3 rounded border border-secondary mb-3 mx-auto" style="max-width: 600px;">
+                <h5 class="text-warning text-start">数値指定変更</h5>
+                <div class="input-group mb-2">
+                    <span class="input-group-text bg-secondary text-light border-secondary">コイン</span>
+                    <input type="number" class="form-control bg-dark text-light border-secondary" id="cheat-coin-val" placeholder="枚数">
+                    <button class="btn btn-warning" onclick="setCheatCoins()">設定</button>
+                </div>
+                <div class="input-group">
+                    <span class="input-group-text bg-secondary text-light border-secondary">残機数</span>
+                    <input type="number" class="form-control bg-dark text-light border-secondary" id="cheat-life-val" placeholder="残機">
+                    <button class="btn btn-danger" onclick="setCheatLives()">設定</button>
+                </div>
+            </div>
+            <button class="btn btn-light fw-bold w-100" onclick="showMenu()">閉じる</button>
+        </div>
+
+        <!-- Pause Menu -->
+        <div id="pause-panel" class="game-panel" style="border-color: #0dcaf0;">
+            <h1 class="display-4 text-info fw-bold">PAUSE</h1>
+            <p class="mb-4">一時停止中</p>
+            <div class="d-grid gap-3 mx-auto" style="max-width: 400px;">
+                <button class="btn btn-light btn-lg fw-bold" onclick="togglePause()">
+                    <i class="bi bi-play-fill"></i> ゲーム再開
+                </button>
+                <button class="btn btn-outline-light" onclick="showMenu()">
+                    <i class="bi bi-house-door"></i> メニューへ戻る
+                </button>
+            </div>
+        </div>
+
+        <!-- Help Modal -->
+        <div id="help-panel" class="game-panel">
+            <h3 class="text-info fw-bold">遊び方</h3>
+            <div class="text-start bg-dark p-3 rounded border border-secondary mb-3 small mx-auto" style="max-width: 600px;">
+                <p class="lead mb-3">ゴールポールの旗を上げればクリア！</p>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <h5 class="text-warning border-bottom border-secondary pb-1">PC操作</h5>
+                        <ul class="ps-3 mb-0">
+                            <li><strong>← →</strong> : 移動</li>
+                            <li><strong>SPACE</strong> : ジャンプ (2回押しで2段ジャンプ)</li>
+                            <li><strong>SHIFT</strong> : ダッシュ</li>
+                            <li><strong>↓</strong> : しゃがむ / <span class="text-info">ヒップドロップ</span></li>
+                            <li><strong>ESC</strong> : 一時停止</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h5 class="text-warning border-bottom border-secondary pb-1">スマホ操作</h5>
+                        <ul class="ps-3 mb-0">
+                            <li><strong>JUMP</strong> : ジャンプ (2回押しで2段ジャンプ)</li>
+                            <li><strong>走る</strong> : ダッシュ</li>
+                            <li><strong>ヒップ</strong> : <span class="text-info">ヒップドロップ (空中)</span></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="mt-3 p-2 bg-secondary bg-opacity-25 rounded">
+                    <strong>💡 ヒント:</strong> ハテナブロックの上からヒップドロップすると、アイテムを出せます！
+                </div>
+            </div>
+            <button class="btn btn-light fw-bold w-100" onclick="showMenu()">閉じる</button>
+        </div>
+
+        <!-- Game Over -->
+        <div id="gameover-panel" class="game-panel" style="border-color: #ff4d4d;">
+            <h1 class="display-4 text-danger fw-bold">GAME OVER</h1>
+            <p class="mb-4 text-light">残機がなくなりました</p>
+            <div class="d-grid gap-2 mt-4 text-start mx-auto" style="max-width: 500px;">
+                <button class="btn btn-light fw-bold py-3" onclick="retryGame()" id="go-retry-btn" disabled>
+                    コンティニュー <span class="d-block small fw-normal text-secondary">※残機が必要です (ショップで購入してください)</span>
+                </button>
+                <button class="btn btn-danger fw-bold py-3" onclick="continueNegative()">
+                    💀 残機マイナスで継続 <span class="d-block small fw-normal text-light">※借金状態でその場復活</span>
+                </button>
+                <button class="btn btn-outline-light" onclick="showMenu()">メニューへ戻る</button>
+            </div>
+        </div>
+
+        <!-- Suicide Confirm -->
+        <div id="suicide-panel" class="game-panel" style="border-color: #ff4444;">
+            <h3 class="text-danger">あきらめますか？</h3>
+            <p>詰み状態など、どうしても進めない場合に使用します。</p>
+            <div class="d-flex justify-content-center gap-3 mt-4">
+                <button class="btn btn-danger btn-lg px-5" onclick="executeSuicide()">はい (<span id="suicide-life-calc"></span>)</button>
+                <button class="btn btn-secondary btn-lg px-5" onclick="closeSuicide()">いいえ</button>
+            </div>
+        </div>
+
+        <!-- Dead Panel -->
+        <div id="dead-panel" class="game-panel" style="border-color: #888;">
+            <h1 class="display-5 fw-bold text-secondary">YOU ARE DEAD</h1>
+            <div class="d-grid gap-3 mt-4 mx-auto" style="max-width: 400px;">
+                <button class="btn btn-light btn-lg fw-bold" onclick="respawnPlayer()">
+                    コンティニュー <span class="ms-2 badge bg-dark text-danger" id="dead-lives-info"></span>
+                </button>
+                <button class="btn btn-outline-light" onclick="showMenu()">メニューへ戻る</button>
+            </div>
+        </div>
+
+        <!-- Level Clear -->
+        <div id="clear-panel" class="game-panel" style="border-color: #00ff88;">
+            <h1 class="display-4 text-success fw-bold">CLEAR!</h1>
+            <div class="bg-dark p-3 rounded mb-3 border border-secondary text-start mx-auto" style="max-width: 600px;">
+                <div class="mb-2 text-center" style="color: #00ffcc; font-size: 2rem; font-weight: bold;">
+                    TIME: <span id="result-time">00:00.00</span>
+                </div>
+                <div class="small text-warning text-center mb-3 fs-5" id="new-record-msg" style="display:none;">★ NEW RECORD! ★</div>
+                
+                <div class="d-flex justify-content-between border-bottom border-secondary pb-2 mb-2 fs-5">
+                    <span class="text-secondary">獲得コイン:</span>
+                    <span class="text-warning fw-bold">+<span id="result-coins">0</span></span>
+                </div>
+                <div class="d-flex justify-content-between fs-5">
+                    <span class="text-secondary">残機推移:</span>
+                    <span class="text-light fw-bold"><span id="result-life-diff"></span></span>
+                </div>
+                
+                <div class="mt-3 small text-secondary text-center">▼ 通ったルート ▼</div>
+                <canvas id="result-map-canvas"></canvas>
+            </div>
+            <div class="d-grid gap-2 mx-auto" style="max-width: 500px;">
+                <button class="btn btn-primary btn-lg fw-bold" onclick="nextLevel()">次のレベルへ</button>
+                <button class="btn btn-outline-light" onclick="showMenu()">メニューへ戻る</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="mobile-controls">
+        <div class="control-group">
+            <div class="control-btn" id="btn-left"><i class="bi bi-caret-left-fill"></i></div>
+            <div class="control-btn" id="btn-down" style="font-size: 12px;">しゃがむ</div>
+            <div class="control-btn" id="btn-right"><i class="bi bi-caret-right-fill"></i></div>
+        </div>
+        <div class="control-group">
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <div class="control-btn btn-sub btn-hip" id="btn-hip">ヒップ</div>
+                <div class="control-btn btn-sub btn-run" id="btn-run">走る</div>
+            </div>
+            <div class="control-btn btn-action btn-jump" id="btn-jump">JUMP</div>
+        </div>
+    </div>
+</div>
+
+<script>
+/** UTILS **/
+const fmt = (n) => n.toLocaleString('ja-JP');
+
+/** SYSTEM **/
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+const GAME_WIDTH = 800;
+const GAME_HEIGHT = 450;
+const TILE_SIZE = 40;
+
+// Data
+let gameData = { lives: 10, coins: 0, maxReachedLevel: 1, history: [], bestTimes: {}, settings: { initialLives: 10 } };
+const saved = localStorage.getItem('panicCat_save_v6');
+if(saved) { try { gameData = { ...gameData, ...JSON.parse(saved) }; } catch(e){} }
+function saveData() { localStorage.setItem('panicCat_save_v6', JSON.stringify(gameData)); }
+
+// Constants
+const GRAVITY = 0.6; const FRICTION = 0.82; const JUMP_FORCE = 12.5; 
+const MOVE_SPEED = 0.8; const MAX_SPEED = 6.0;
+const RUN_ACCEL = 1.2; const RUN_MAX_SPEED = 9.0;
+const CROUCH_FRICTION = 0.92; const HIP_DROP_SPEED = 15;
+
+const T = { EMPTY:0, GROUND:1, BLOCK:2, HARD_BLOCK:3, SPIKE:4, POLE:5, Q_BLOCK:6, HIDDEN:7, FALLING:8, FAKE:9, INVISIBLE_DEATH:10, USED_BLOCK:11, FACE_BLOCK:12, CHECKPOINT:13, CHECKPOINT_ON:14, COIN:15, FAKE_SPIKE:16, CEILING_SPIKE:17, HIDDEN_TRIGGER:18, COIN_BLOCK:19, MULTI_COIN_BLOCK:20 };
+const I = { MUSHROOM:1, POISON:2, FAKE:3 };
+
+// Runtime
+let gameState = 'MENU';
+let currentLevel = 1;
+let activeCheats = { flight: false, god: false, speed: false, unlock: false, infinite: false, infiniteCoins: false };
+let allowNegativeLives = false;
+let currentSeed = 0;
+let levelStartCoins = 0; let levelStartLives = 0;
+let startTime=0, elapsedTime=0, isTimerRunning=false;
+let frameCount = 0;
+let trail = [];
+
+// Objects
+let levelMap = []; let items = []; let particles = [];
+let activeBlocks = {}; 
+let goalPole = { x:0, y:0, h:0, flagY:0 };
+let player = { x:0, y:0, w:30, h:24, crouchH:14, vx:0, vy:0, grounded:false, facingRight:true, dead:false, isBig:false, invincible:0, crouching:false, jumpCount:0, isHipDropping:false, respawnX:100, respawnY:200 };
+let keys = { left:false, right:false, up:false, down:false, jump:false, jumpPressed:false, run:false, hip:false, hipPressed:false };
+
+/** INITIALIZATION **/
+window.addEventListener('DOMContentLoaded', initSystem);
+
+function initSystem() {
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    document.getElementById('lives-range').value = gameData.settings.initialLives;
+    updateMenuDisplay();
+    
+    document.getElementById('lives-range').addEventListener('input', e => {
+        gameData.settings.initialLives = parseInt(e.target.value);
+        updateMenuDisplay();
+        saveData();
+    });
+
+    ['flight', 'god', 'speed', 'infinite', 'unlock', 'inf-coin'].forEach(id => {
+        const cid = id === 'inf-coin' ? 'infiniteCoins' : id;
+        document.getElementById(`cheat-${id}`).addEventListener('change', e => {
+            activeCheats[cid] = e.target.checked;
+            updateCheatStatus();
+            if(id==='unlock') generateLevelList();
+            updateHUD();
+        });
+    });
+
+    if('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+        document.getElementById('mobile-controls').style.display = 'flex';
+        bindTouch('btn-left', 'left'); bindTouch('btn-right', 'right');
+        bindTouch('btn-down', 'down'); bindTouch('btn-jump', 'jump');
+        bindTouch('btn-run', 'run'); bindTouch('btn-hip', 'hip');
+    }
+    
+    requestAnimationFrame(gameLoop);
+}
+
+function updateMenuDisplay() {
+    document.getElementById('lives-val').innerText = gameData.settings.initialLives;
+    document.getElementById('max-reached-display').innerText = "到達: Lv." + fmt(gameData.maxReachedLevel);
+    document.getElementById('cont-level-display').innerText = fmt(gameData.maxReachedLevel);
+    generateLevelList();
+}
+
+function bindTouch(id, key) {
+    const el = document.getElementById(id);
+    el.addEventListener('touchstart', e => { e.preventDefault(); keys[key]=true; el.classList.add('pressed'); if(key==='jump') keys.jumpPressed=true; if(key==='hip') keys.hipPressed=true; });
+    el.addEventListener('touchend', e => { e.preventDefault(); keys[key]=false; el.classList.remove('pressed'); });
+}
+
+function resizeCanvas() {
+    const w = document.getElementById('game-wrapper');
+    const aspect = GAME_WIDTH/GAME_HEIGHT;
+    let dw = w.clientWidth, dh = w.clientHeight;
+    if (dw/dh > aspect) dw = dh*aspect; else dh = dw/aspect;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = dw*dpr; canvas.height = dh*dpr;
+    canvas.style.width = `${dw}px`; canvas.style.height = `${dh}px`;
+    ctx.scale(dpr * (dw/GAME_WIDTH), dpr * (dh/GAME_HEIGHT));
+    
+    const mm = document.getElementById('minimap-canvas');
+    mm.width = mm.clientWidth*dpr; mm.height = mm.clientHeight*dpr;
+    const rm = document.getElementById('result-map-canvas');
+    rm.width = rm.clientWidth*dpr; rm.height = rm.clientHeight*dpr;
+    const hm = document.getElementById('history-route-canvas'); // Add this
+    if(hm) { hm.width = hm.clientWidth*dpr; hm.height = hm.clientHeight*dpr; }
+}
+
+function updateCheatStatus() {
+    document.getElementById('cheat-status').style.display = Object.values(activeCheats).some(v=>v) ? 'block' : 'none';
+}
+
+function showPanel(id) {
+    document.querySelectorAll('.game-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('pause-container').style.display = (id || gameState !== 'PLAYING') ? 'none' : 'block';
+    if(id) {
+        document.getElementById(id).classList.add('active');
+        if(id==='clear-panel') setTimeout(drawResultMap, 100);
+    }
+}
+function showCheats() { showPanel('cheat-panel'); }
+function showHelp() { showPanel('help-panel'); }
+
+/** SHOP **/
+const SHOP_ITEMS = [
+    { n: 1, cost: 100, discount: 0 },
+    { n: 5, cost: 475, discount: 5, saved: 25 },
+    { n: 10, cost: 900, discount: 10, saved: 100 },
+    { n: 25, cost: 2125, discount: 15, saved: 375 },
+    { n: 50, cost: 4000, discount: 20, saved: 1000 },
+    { n: 100, cost: 7500, discount: 25, saved: 2500 },
+    { n: 250, cost: 17500, discount: 30, saved: 7500 },
+    { n: 500, cost: 32500, discount: 35, saved: 17500 },
+    { n: 1000, cost: 60000, discount: 40, saved: 40000, old: 100000 }
+];
+
+function showShop() {
+    const list = document.getElementById('shop-list');
+    list.innerHTML = '';
+    const currentCoins = activeCheats.infiniteCoins ? "∞" : fmt(gameData.coins);
+    document.getElementById('shop-coins').innerText = currentCoins;
+    
+    SHOP_ITEMS.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'shop-item';
+        
+        let originalPrice = Math.round(item.cost / ((100 - item.discount)/100));
+        let priceHtml = '';
+        if(item.discount > 0) {
+            priceHtml = `<span class="old-price">${fmt(originalPrice)}</span><span class="new-price">${fmt(item.cost)}</span>`;
+        } else {
+            priceHtml = `<span class="new-price">${fmt(item.cost)}</span>`;
+        }
+
+        let badge = item.discount > 0 ? `<span class="discount-badge">${item.discount}% OFF</span>` : '';
+        let savedText = item.saved ? `<span class="saved-text">${fmt(item.saved)}コインお得</span>` : '';
+        
+        const canBuy = activeCheats.infiniteCoins || gameData.coins >= item.cost;
+        const afterCoin = activeCheats.infiniteCoins ? "∞" : fmt(gameData.coins - item.cost);
+        const displayCoin = activeCheats.infiniteCoins ? "∞" : fmt(gameData.coins);
+
+        div.innerHTML = `
+            <div><span class="fw-bold text-light">❤ ${fmt(item.n)}UP</span></div>
+            <div class="price-container">
+                <div>${priceHtml} <i class="bi bi-circle-fill text-warning small"></i>${badge}</div>
+                ${savedText}
+                <button class="btn btn-sm btn-primary mt-1" ${canBuy?'':'disabled'} onclick="buyLives(${item.n}, ${item.cost})">購入</button>
+                <span class="coin-calc">${displayCoin} → ${afterCoin}</span>
+            </div>`;
+        list.appendChild(div);
+    });
+    showPanel('shop-panel');
+}
+
+function buyLives(n, cost) {
+    if(gameData.coins >= cost || activeCheats.infiniteCoins) {
+        if(!activeCheats.infiniteCoins) gameData.coins -= cost;
+        gameData.lives += n;
+        saveData();
+        showShop();
+        updateHUD();
+    }
+}
+
+function setCheatCoins() {
+    const val = parseInt(document.getElementById('cheat-coin-val').value);
+    if(!isNaN(val) && val >= 0) { gameData.coins = val; saveData(); updateHUD(); alert(`コインを ${val} に設定しました`); }
+}
+function setCheatLives() {
+    const val = parseInt(document.getElementById('cheat-life-val').value);
+    if(!isNaN(val) && val >= 0) { gameData.lives = val; saveData(); updateHUD(); alert(`残機を ${val} に設定しました`); }
+}
+function addCheatCoins() { gameData.coins += 10000; saveData(); showCheats(); }
+
+function showHistory() {
+    const tbody = document.getElementById('history-table-body');
+    tbody.innerHTML = '';
+    [...gameData.history].reverse().forEach((h, idx) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${h.date}</td><td>${fmt(h.level)}</td><td>${h.time}</td><td>${fmt(h.coins)}</td><td>${fmt(h.lives)}</td>
+            <td><button class="btn btn-sm btn-outline-info" onclick="viewHistoryRoute(${gameData.history.length - 1 - idx})"><i class="bi bi-map"></i></button></td>
+        `;
+        tbody.appendChild(row);
+    });
+    showPanel('history-panel');
+}
+
+function viewHistoryRoute(index) {
+    const h = gameData.history[index];
+    if(!h) return;
+    document.getElementById('route-view-level').innerText = h.level;
+    showPanel('route-view-panel');
+    
+    // Draw to canvas
+    const c = document.getElementById('history-route-canvas');
+    // Temp generate world to draw
+    generateWorld(h.level); 
+    // Use history trail
+    const tempTrail = h.trail || [];
+    drawMapOnCanvas(c.getContext('2d'), false, tempTrail);
+}
+
+/** LEVEL UTILS **/
+function generateLevelList() {
+    const list = document.getElementById('level-list');
+    if(!list) return;
+    list.innerHTML = '';
+    const max = activeCheats.unlock ? 100 : Math.min(10000, gameData.maxReachedLevel + 9);
+    for(let i=1; i<=max; i++) {
+        const btn = document.createElement('div');
+        btn.className = 'level-btn';
+        const medal = gameData.bestTimes[i] ? ' <i class="bi bi-star-fill text-warning small"></i>' : '';
+        if(i <= gameData.maxReachedLevel || activeCheats.unlock) {
+            btn.classList.add('unlocked'); btn.innerHTML = i + medal; btn.onclick = () => startGame(i);
+        } else {
+            btn.classList.add('locked'); btn.innerHTML = '<i class="bi bi-lock-fill"></i>';
+        }
+        list.appendChild(btn);
+    }
+}
+
+function adjustLevelInput(d) { const i = document.getElementById('level-input'); let v = parseInt(i.value)+d; if(v<1)v=1; if(v>10000)v=10000; i.value=v; }
+function startGameFromInput() { const v = parseInt(document.getElementById('level-input').value); if(v>=1&&v<=10000){ if(v<=gameData.maxReachedLevel||activeCheats.unlock) startGame(v); else alert("まだ解放されていません"); } }
+function copySeed() { navigator.clipboard.writeText(currentSeed).then(()=>alert(`SEED: ${currentSeed} コピーしました`)); }
+function showMenu() { gameState = 'MENU'; generateLevelList(); showPanel('menu-panel'); isTimerRunning = false; }
+function startGame(lv) { 
+    currentLevel = lv; 
+    if(gameState==='MENU' && gameData.lives <= 0) {
+        // If starting fresh and no lives, reset to default (or should we force init?)
+        // Prompt says "lives never revive unless initialized or bought".
+        // But if it's a new game from menu and you have 0 lives, you can't play.
+        // Assuming player should use Initialize button if stuck at 0 in menu.
+        // However, to prevent softlock for new players:
+        if(gameData.lives === 0 && gameData.coins < 100) {
+             alert("残機がありません。初期化するかチートを使用してください。");
+             return;
+        }
+    }
+    levelStartCoins=gameData.coins; levelStartLives=gameData.lives; 
+    player.respawnX=100; player.respawnY=200; allowNegativeLives=false; 
+    resetLevel(true); showPanel(null); gameState='PLAYING'; startTimer(); 
+}
+function retryGame() { 
+    // Lives are NOT reset here based on request.
+    if(gameData.lives <= 0 && !allowNegativeLives && !activeCheats.god) {
+        return; // Should be disabled button anyway
+    }
+    allowNegativeLives=false; player.respawnX=100; player.respawnY=200; 
+    resetLevel(true); showPanel(null); gameState='PLAYING'; startTimer(); 
+}
+function resetAllData() {
+    if(confirm("本当に全てのデータを初期化しますか？")) {
+        localStorage.removeItem('panicCat_save_v6');
+        location.reload();
+    }
+}
+function startTimer() { startTime = Date.now(); elapsedTime = 0; isTimerRunning = true; trail = []; }
+function nextLevel() { currentLevel++; levelStartCoins=gameData.coins; levelStartLives=gameData.lives; player.respawnX=100; player.respawnY=200; resetLevel(true); showPanel(null); gameState='PLAYING'; startTimer(); }
+
+/** PAUSE **/
+function togglePause() {
+    if(gameState === 'PLAYING') {
+        gameState = 'PAUSED'; showPanel('pause-panel'); isTimerRunning = false;
+    } else if (gameState === 'PAUSED') {
+        gameState = 'PLAYING'; showPanel(null); isTimerRunning = true; startTime = Date.now() - elapsedTime;
+    }
+}
+
+/** GAME LOGIC **/
+function resetLevel(fullReset) {
+    generateWorld(currentLevel);
+    player.x=player.respawnX; player.y=player.respawnY; player.vx=0; player.vy=0; player.dead=false; player.grounded=false; player.isBig=false; player.invincible=0; player.crouching=false; player.jumpCount=0; player.isHipDropping=false;
+    items=[]; particles=[]; keys.jumpPressed=false; keys.hipPressed=false; goalPole.flagY=0;
+}
+function generateWorld(lv) {
+    currentSeed = lv * 777; document.getElementById('menu-seed-val').innerText = currentSeed;
+    let seed = currentSeed; const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    const randInt = (min, max) => Math.floor(rand() * (max - min + 1)) + min;
+    const width = 200 + (lv * 5); const height = 15; levelMap = Array(height).fill().map(() => Array(width).fill(T.EMPTY)); const gY = 11;
+    activeBlocks = {}; // Reset multi-hit state
+    for(let x=0; x<15; x++) for(let y=gY; y<height; y++) levelMap[y][x] = T.GROUND;
+    let cx = 15; const midPoint = Math.floor(width/2); let checkPointSet = false;
+    while(cx < width - 20) {
+        if(!checkPointSet && cx >= midPoint) { for(let k=0; k<6; k++) for(let y=gY; y<height; y++) levelMap[y][cx+k] = T.GROUND; levelMap[gY-1][cx+3] = T.CHECKPOINT; checkPointSet = true; cx += 6; continue; }
+        const pat = randInt(0, 9); const len = randInt(8, 12);
+        if(pat !== 1 && pat !== 7) { for(let x=0; x<len; x++) { let t = T.GROUND; if(rand() < 0.1) t = T.FALLING; else if (rand() < 0.05) t = T.FAKE; levelMap[gY][cx+x] = t; for(let y=gY+1; y<height; y++) levelMap[y][cx+x] = T.GROUND; if(rand() < 0.3) levelMap[gY-4][cx+x] = T.COIN; } }
+        switch(pat) {
+            case 0: if(rand()<0.5) { const bx = cx + randInt(3, len-3); levelMap[gY-4][bx] = T.Q_BLOCK; levelMap[gY-4][bx-1] = T.HIDDEN; levelMap[gY-4][bx+1] = T.HIDDEN; if(levelMap[gY][bx] !== T.FAKE) levelMap[gY-1][bx] = T.SPIKE; } break;
+            case 1: levelMap[gY-2][cx] = T.BLOCK; levelMap[gY-2][cx+1] = T.BLOCK; levelMap[gY-3][cx+Math.floor(len/2)] = T.FALLING; levelMap[gY-2][cx+len-1] = T.BLOCK; if(rand()<0.3) levelMap[gY-5][cx+Math.floor(len/2)] = T.HIDDEN; levelMap[gY-4][cx+Math.floor(len/2)] = T.COIN; break;
+            case 2: for(let i=0; i<4; i++) levelMap[gY-1-i][cx+2+i] = T.HARD_BLOCK; if(rand()<0.5) levelMap[gY-4][cx+6] = T.HIDDEN; break;
+            case 3: for(let y=0; y<3; y++) levelMap[gY-1-y][cx+3] = T.HARD_BLOCK; levelMap[gY-1][cx+4] = T.FAKE_SPIKE; break;
+            case 4: for(let x=1; x<len-1; x++) { levelMap[gY-4][cx+x] = T.BLOCK; if(rand()<0.3) levelMap[gY-5][cx+x] = T.COIN; } if(rand()<0.4) levelMap[gY-5][cx+3] = T.SPIKE; break;
+            case 5: for(let x=1; x<len-1; x+=2) levelMap[gY-1][cx+x] = T.SPIKE; levelMap[gY-4][cx+3] = T.BLOCK; levelMap[gY-4][cx+5] = T.BLOCK; levelMap[gY-4][cx+4] = T.HIDDEN; break;
+            case 6: levelMap[gY-4][cx+4] = T.CEILING_SPIKE; levelMap[gY-4][cx+5] = T.CEILING_SPIKE; break;
+            case 7: for(let x=2; x<len-2; x++) { levelMap[gY][cx+x] = T.EMPTY; levelMap[gY+1][cx+x] = T.GROUND; } levelMap[gY-3][cx+3] = T.HIDDEN_TRIGGER; levelMap[gY-3][cx+4] = T.HIDDEN_TRIGGER; levelMap[gY-3][cx+5] = T.HIDDEN_TRIGGER; levelMap[gY+1][cx+4] = T.COIN; break;
+            case 8: if(rand()<0.5) levelMap[gY-4][cx+3] = T.COIN_BLOCK; else levelMap[gY-4][cx+3] = T.MULTI_COIN_BLOCK; break;
+        }
+        cx += len;
+    }
+    for(let x=0; x<20; x++) for(let y=gY; y<height; y++) levelMap[y][cx+x] = T.GROUND;
+    levelMap[gY-2][cx+8] = T.HIDDEN; levelMap[gY-2][cx+9] = T.HIDDEN;
+    goalPole = { x: (cx+14)*TILE_SIZE + 15, y: (gY-8)*TILE_SIZE, h: 8*TILE_SIZE, flagY: 0 }; levelMap[gY-1][cx+14] = T.POLE; 
+    if(player.respawnX > midPoint * TILE_SIZE) { for(let y=0; y<height; y++) for(let x=0; x<width; x++) if(levelMap[y][x]===T.CHECKPOINT) levelMap[y][x]=T.CHECKPOINT_ON; }
+}
+
+function gameLoop() {
+    update(); draw();
+    if(gameState === 'PLAYING') { updateHUD(); drawMiniMap(); }
+    requestAnimationFrame(gameLoop);
+}
+
+function update() {
+    if(gameState === 'GOAL_ANIM') { updateGoalAnim(); return; }
+    if(gameState !== 'PLAYING' || player.dead) return;
+
+    if((keys.down || keys.hip) && !player.grounded && !player.crouching && keys.hipPressed) { player.vy = HIP_DROP_SPEED; player.isHipDropping = true; keys.hipPressed = false; }
+
+    if(activeCheats.flight && (keys.jump || keys.up)) { player.vy = -5; player.grounded = false; }
+    else if(activeCheats.flight && keys.down) player.vy = 5;
+    else {
+        if(keys.jumpPressed) {
+            if(player.grounded) { player.vy = -JUMP_FORCE; player.grounded = false; player.jumpCount = 1; keys.jumpPressed = false; }
+            else if (player.jumpCount < 2 || activeCheats.infinite) { player.vy = -JUMP_FORCE * 0.9; player.jumpCount++; keys.jumpPressed = false; spawnParticles(player.x, player.y+20, '#FFF'); }
+        }
+        player.vy += activeCheats.flight ? 0 : GRAVITY;
+    }
+
+    let acc = keys.run ? RUN_ACCEL : MOVE_SPEED;
+    let cap = keys.run ? (activeCheats.speed ? RUN_MAX_SPEED*1.5 : RUN_MAX_SPEED) : (activeCheats.speed ? MAX_SPEED*1.5 : MAX_SPEED);
+
+    if(keys.left) { player.vx -= acc; player.facingRight = false; }
+    if(keys.right) { player.vx += acc; player.facingRight = true; }
+
+    if(keys.down && player.grounded && !activeCheats.flight) { player.crouching = true; player.vx *= CROUCH_FRICTION; }
+    else { player.crouching = false; player.vx *= FRICTION; }
+
+    if(player.vx > cap) player.vx = cap; if(player.vx < -cap) player.vx = -cap;
+    if(Math.abs(player.vx) < 0.1) player.vx = 0;
+
+    let steps = Math.ceil(Math.max(Math.abs(player.vx), Math.abs(player.vy)) / (TILE_SIZE * 0.4));
+    let svx = player.vx/steps; let svy = player.vy/steps;
+    for(let i=0; i<steps; i++) { player.x += svx; checkCollisionX(player); player.y += svy; checkCollisionY(player); }
+
+    if(player.x+player.w > goalPole.x && player.x < goalPole.x+10 && player.y < goalPole.y+goalPole.h && player.y+player.h > goalPole.y) startGoalAnim();
+    if(player.y > GAME_HEIGHT + 100) die();
+    if(player.invincible > 0) player.invincible--;
+    updateItems();
+    if(frameCount%5===0 && !player.dead) trail.push({x: player.x+player.w/2, y: player.y+player.h/2});
+    frameCount++;
+}
+
+function performHipDrop() { if(!player.grounded) { player.vy = HIP_DROP_SPEED; player.isHipDropping = true; } }
+function startGoalAnim() { gameState = 'GOAL_ANIM'; player.vx = 0; player.vy = 0; player.x = goalPole.x - 10; isTimerRunning = false; }
+function updateGoalAnim() { if(player.y < goalPole.y + goalPole.h - player.h) player.y += 4; else { if(goalPole.flagY < goalPole.h - 40) goalPole.flagY += 4; else if(gameState !== 'CLEARED') levelClear(); } }
+
+function checkCollisionY(obj) {
+    const offsetY = obj.crouching ? (obj.h - obj.crouchH) : 0;
+    obj.grounded = false;
+    const startX = Math.floor(obj.x/TILE_SIZE), endX = Math.floor((obj.x+obj.w-0.1)/TILE_SIZE);
+    const startY = Math.floor((obj.y+offsetY)/TILE_SIZE), endY = Math.floor((obj.y+obj.h-0.1)/TILE_SIZE);
+
+    for(let y=startY; y<=endY; y++) for(let x=startX; x<=endX; x++) {
+        const t = getTile(x, y);
+        if(obj===player) {
+            if(t===T.COIN) { levelMap[y][x] = T.EMPTY; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#FFD700'); }
+            if(t===T.CHECKPOINT) { levelMap[y][x] = T.CHECKPOINT_ON; player.respawnX = x*TILE_SIZE; player.respawnY = y*TILE_SIZE; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE, '#00FF00'); }
+            if(t===T.SPIKE || t===T.CEILING_SPIKE) { if(intersect(obj, {x:x*TILE_SIZE+10, y:y*TILE_SIZE+10, w:20, h:20})) hitDamage(); }
+            if(t===T.INVISIBLE_DEATH) die();
+            if(obj.vy<0 && obj.y<(y+1)*TILE_SIZE && obj.y>y*TILE_SIZE) handleHeadBump(x,y,t);
+            if(t===T.HIDDEN_TRIGGER) levelMap[y][x] = T.HARD_BLOCK;
+        }
+        if(isSolid(t)) {
+            if(t===T.FAKE||t===T.FAKE_SPIKE||t===T.CEILING_SPIKE) continue;
+            if(obj.vy > 0) {
+                if(obj.y+obj.h <= y*TILE_SIZE+16) {
+                    obj.y = y*TILE_SIZE - obj.h; obj.vy = 0; obj.grounded = true; obj.jumpCount = 0;
+                    if((t===T.Q_BLOCK || t===T.COIN_BLOCK || t===T.MULTI_COIN_BLOCK || t===T.BLOCK) && player.isHipDropping) {
+                        handleHeadBump(x,y,t); player.vy = -6;
+                    }
+                    if(t===T.FALLING && obj===player) setTimeout(()=>{ if(levelMap[y][x]===T.FALLING){levelMap[y][x]=T.EMPTY; spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#aaa');} },150);
+                    player.isHipDropping = false; 
+                }
+            } else if(obj.vy < 0) {
+                if(t!==T.FALLING && obj.y >= (y+1)*TILE_SIZE - 10) { obj.y = (y+1)*TILE_SIZE; obj.vy = 0; }
+            }
+        }
+    }
+}
+
+function checkCollisionX(obj) {
+    const offsetY = obj.crouching ? (obj.h - obj.crouchH) : 0;
+    const startX = Math.floor(obj.x/TILE_SIZE), endX = Math.floor((obj.x+obj.w-0.1)/TILE_SIZE);
+    const startY = Math.floor((obj.y+offsetY)/TILE_SIZE), endY = Math.floor((obj.y+obj.h-0.1)/TILE_SIZE);
+    for(let y=startY; y<=endY; y++) for(let x=startX; x<=endX; x++) {
+        const t = getTile(x, y);
+        if(t===T.COIN && obj===player) { levelMap[y][x] = T.EMPTY; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#FFD700'); }
+        if(obj===player && t===T.CHECKPOINT) { levelMap[y][x] = T.CHECKPOINT_ON; player.respawnX = x*TILE_SIZE; player.respawnY = y*TILE_SIZE; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE, '#00FF00'); }
+        if(t===T.INVISIBLE_DEATH && obj===player) die();
+        if(t===T.HIDDEN_TRIGGER) levelMap[y][x] = T.HARD_BLOCK;
+        if(isSolid(t)) {
+            if(t===T.FAKE||t===T.FALLING||t===T.FAKE_SPIKE||t===T.CEILING_SPIKE) continue;
+            if(obj.vx > 0) { obj.x = x*TILE_SIZE - obj.w; } else if(obj.vx < 0) { obj.x = (x+1)*TILE_SIZE; }
+            obj.vx = 0;
+        }
+    }
+}
+
+function handleHeadBump(x, y, t) {
+    if(t===T.Q_BLOCK) {
+        levelMap[y][x] = T.USED_BLOCK; const rnd = Math.random();
+        let item = (rnd<0.6)?I.POISON:(rnd<0.8?I.FAKE:I.MUSHROOM); spawnItem(x*TILE_SIZE, y*TILE_SIZE-30, item); 
+    } else if(t===T.COIN_BLOCK) {
+        levelMap[y][x] = T.USED_BLOCK; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE-20, '#FFD700');
+    } else if(t===T.MULTI_COIN_BLOCK) {
+        const key = `${currentLevel}_${x}_${y}`;
+        if(!activeBlocks[key]) activeBlocks[key] = 10;
+        activeBlocks[key]--;
+        if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE-20, '#FFD700');
+        if(activeBlocks[key] <= 0) levelMap[y][x] = T.USED_BLOCK;
+    } else if(t===T.HIDDEN || t===T.HIDDEN_TRIGGER) {
+        levelMap[y][x] = t===T.HIDDEN_TRIGGER ? T.HARD_BLOCK : T.FACE_BLOCK; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE+40, '#fff');
+        if(player.vy < 0) { player.vy = 0; player.y = (y+1)*TILE_SIZE; }
+    } else if(t===T.BLOCK && player.isBig) {
+        levelMap[y][x] = T.EMPTY; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE+20, '#A0522D'); if(player.vy<0) player.vy = 0;
+    }
+}
+
+function isSolid(t) { return (t >= 1 && t <= 3) || (t >= 6 && t <= 12) || t===T.CEILING_SPIKE || t===T.HIDDEN_TRIGGER || t===T.COIN_BLOCK || t===T.MULTI_COIN_BLOCK; }
+function getTile(x, y) { if(y<0||y>=levelMap.length||x<0||x>=levelMap[0].length) return T.EMPTY; return levelMap[y][x]; }
+function intersect(a, b) { return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
+function spawnItem(x, y, type) { items.push({x:x, y:y, w:30, h:30, vx:2, vy:-5, type:type, active:false}); setTimeout(()=>{ if(items.length>0) items[items.length-1].active=true; },300); }
+function updateItems() { for(let i=items.length-1; i>=0; i--) { let it = items[i]; it.vy += GRAVITY; it.x += it.vx; checkCollisionX(it); it.y += it.vy; checkCollisionY(it); if(it.vx===0) it.vx=(Math.random()>0.5?2:-2); if(it.active && intersect(player, it)) { if(it.type===I.MUSHROOM) { if(!player.isBig){player.isBig=true; player.y-=10; spawnParticles(player.x,player.y,'#ff0000');} } else if(it.type===I.POISON) die(); else if(it.type===I.FAKE) spawnParticles(player.x,player.y,'#888'); items.splice(i,1); } else if(it.y>GAME_HEIGHT+50) items.splice(i,1); } }
+function hitDamage() { if(activeCheats.god || player.invincible>0) return; if(player.isBig){ player.isBig=false; player.invincible=120; player.vy=-5; spawnParticles(player.x,player.y,'#fff'); } else die(); }
+function die() { if(activeCheats.god || player.dead) return; player.dead = true; player.vy = -12; isTimerRunning = false; trail.push(null); saveData(); setTimeout(() => { const cur = activeCheats.god ? '∞' : fmt(gameData.lives); const nxt = activeCheats.god ? '∞' : fmt(gameData.lives - 1); document.getElementById('dead-lives-info').innerText = `❤️ ${cur} → ${nxt}`; if(gameData.lives <= 0 && !allowNegativeLives && !activeCheats.god) { document.getElementById('go-retry-btn').disabled=true; showPanel('gameover-panel'); } else showPanel('dead-panel'); }, 800); }
+function respawnPlayer() { if(player.dead) { if(!activeCheats.god && !allowNegativeLives) gameData.lives--; if(allowNegativeLives) gameData.lives--; } if(gameData.lives < 0 && !allowNegativeLives) { showPanel('gameover-panel'); return; } saveData(); resetLevel(false); showPanel(null); gameState = 'PLAYING'; isTimerRunning = true; }
+function continueNegative() { allowNegativeLives = true; respawnPlayer(); }
+function levelClear() { isTimerRunning = false; gameState = 'CLEARED'; if(currentLevel > gameData.maxReachedLevel && !activeCheats.unlock) { gameData.maxReachedLevel = currentLevel; } document.getElementById('result-time').innerText = formatTime(elapsedTime); let isNewRecord = false; if(!activeCheats.god && !activeCheats.flight) { if(!gameData.bestTimes[currentLevel] || elapsedTime < gameData.bestTimes[currentLevel]) { gameData.bestTimes[currentLevel] = elapsedTime; isNewRecord = true; } } document.getElementById('new-record-msg').style.display = isNewRecord ? 'block' : 'none'; const earned = activeCheats.infiniteCoins ? "∞" : fmt(gameData.coins - levelStartCoins); document.getElementById('result-coins').innerText = earned; document.getElementById('result-life-diff').innerText = `${fmt(levelStartLives)} → ${fmt(gameData.lives)}`; const now = new Date(); gameData.history.push({ date: `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`, level: currentLevel, time: formatTime(elapsedTime), coins: gameData.coins, lives: gameData.lives, trail: [...trail] }); saveData(); setTimeout(drawResultMap, 100); showPanel('clear-panel'); }
+function confirmSuicide() { isTimerRunning = false; const cur = activeCheats.god?'∞':fmt(gameData.lives); const nxt = activeCheats.god?'∞':fmt(gameData.lives-1); document.getElementById('suicide-life-calc').innerText = `${cur} → ${nxt}`; showPanel('suicide-panel'); }
+function closeSuicide() { showPanel(null); isTimerRunning = true; }
+function executeSuicide() { if(!activeCheats.god && !allowNegativeLives) gameData.lives--; if(allowNegativeLives) gameData.lives--; saveData(); if(gameData.lives < 0 && !allowNegativeLives) showPanel('gameover-panel'); else respawnPlayer(); }
+function updateHUD() { document.getElementById('disp-level').innerText = fmt(currentLevel); const lSpan = document.getElementById('disp-lives'); lSpan.innerText = activeCheats.god ? "∞" : fmt(gameData.lives); lSpan.style.color = gameData.lives < 0 ? '#ff0000' : '#ff4d4d'; document.getElementById('disp-coins').innerText = activeCheats.infiniteCoins ? "∞" : fmt(gameData.coins); if(isTimerRunning) elapsedTime = Date.now() - startTime; document.getElementById('disp-time').innerText = formatTime(elapsedTime); }
+function formatTime(ms) { const c = Math.floor((ms%1000)/10); const s = Math.floor((ms/1000)%60); const m = Math.floor((ms/60000)); return `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}.${c.toString().padStart(2,'0')}`; }
+function spawnParticles(x, y, color) { for(let i=0; i<6; i++) particles.push({x:x, y:y, vx:(Math.random()-0.5)*8, vy:(Math.random()-0.5)*8, color:color, life:20}); }
+
+function draw() {
+    ctx.fillStyle = '#87CEEB'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    let camX = player.x - GAME_WIDTH / 2; if(camX < 0) camX = 0;
+    ctx.save(); ctx.translate(-Math.floor(camX), 0);
+    const startCol = Math.floor(camX/TILE_SIZE), endCol = startCol + (GAME_WIDTH/TILE_SIZE) + 2;
+    for(let y=0; y<levelMap.length; y++) for(let x=startCol; x<=endCol; x++) if(x>=0 && x<levelMap[0].length) drawTile(ctx, x, y, levelMap[y][x]);
+    if(goalPole.x > camX - 50 && goalPole.x < camX + GAME_WIDTH + 50) drawGoalPole(ctx);
+    for(let it of items) drawItem(it);
+    if(!player.dead || frameCount%2===0) { if(player.invincible%4 < 2) drawCat(player); }
+    for(let p of particles) { p.x+=p.vx; p.y+=p.vy; p.life--; ctx.fillStyle=p.color; ctx.fillRect(p.x,p.y,6,6); }
+    particles = particles.filter(p => p.life > 0);
+    ctx.restore();
+}
+function drawGoalPole(c) { c.fillStyle = '#28a745'; c.fillRect(goalPole.x-10, goalPole.y+goalPole.h, 30, 40); c.fillStyle = '#eee'; c.fillRect(goalPole.x, goalPole.y, 10, goalPole.h); c.beginPath(); c.arc(goalPole.x+5, goalPole.y, 10, 0, Math.PI*2); c.fill(); c.fillStyle = '#ff3333'; c.beginPath(); const fy = goalPole.y + goalPole.h - 40 - goalPole.flagY; c.moveTo(goalPole.x+10, fy); c.lineTo(goalPole.x+50, fy+15); c.lineTo(goalPole.x+10, fy+30); c.fill(); }
+function drawMiniMap() { drawMapOnCanvas(document.getElementById('minimap-canvas').getContext('2d'), true, trail); }
+function drawResultMap() { drawMapOnCanvas(document.getElementById('result-map-canvas').getContext('2d'), false, trail); }
+function drawMapOnCanvas(c, hideSpoilers, trailData) {
+    const cv = c.canvas; cv.width = cv.clientWidth * (window.devicePixelRatio || 1); cv.height = cv.clientHeight * (window.devicePixelRatio || 1);
+    c.clearRect(0, 0, cv.width, cv.height);
+    const mapW = levelMap[0].length * TILE_SIZE, mapH = levelMap.length * TILE_SIZE;
+    let scale = cv.width / mapW; if(mapH * scale > cv.height) scale = cv.height / mapH;
+    const offsetX = (cv.width - mapW*scale) / 2, offsetY = (cv.height - mapH*scale) / 2;
+    c.save(); c.translate(offsetX, offsetY); c.scale(scale, scale);
+    for(let y=0; y<levelMap.length; y++) for(let x=0; x<levelMap[0].length; x++) {
+        let t = levelMap[y][x];
+        if(hideSpoilers) { if(t===T.FALLING||t===T.FAKE||t===T.FAKE_SPIKE) t=T.GROUND; if(t===T.HIDDEN||t===T.INVISIBLE_DEATH||t===T.HIDDEN_TRIGGER) t=T.EMPTY; }
+        if(t!==T.EMPTY) {
+            if(t===T.GROUND) c.fillStyle='#654321'; else if(t===T.BLOCK||t===T.HARD_BLOCK) c.fillStyle='#A0522D'; else if(t===T.SPIKE||t===T.CEILING_SPIKE) c.fillStyle='#CCC';
+            else if(t===T.POLE) { c.fillStyle='#eee'; c.fillRect(x*TILE_SIZE+15, y*TILE_SIZE-200, 10, 240); continue; } else if(t===T.CHECKPOINT_ON) c.fillStyle='#0f0'; else if(t===T.CHECKPOINT) c.fillStyle='#ff0'; else if(t===T.COIN) c.fillStyle='#FFD700';
+            else if(t===T.COIN_BLOCK||t===T.MULTI_COIN_BLOCK) c.fillStyle='#DAA520'; else if(t===T.Q_BLOCK) c.fillStyle='#FFD700'; else continue;
+            c.fillRect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
+    }
+    if(trailData) {
+        c.strokeStyle = '#FF0000'; c.lineWidth = TILE_SIZE; c.lineCap='round'; c.lineJoin='round'; c.globalAlpha=0.8;
+        c.beginPath(); 
+        let startNew=true;
+        for(let i=0; i<trailData.length; i++) { if(trailData[i]===null){startNew=true; continue;} if(startNew){c.moveTo(trailData[i].x, trailData[i].y); startNew=false;} else c.lineTo(trailData[i].x, trailData[i].y); } 
+        c.stroke();
+    }
+    c.globalAlpha=1.0; c.fillStyle='#FFF'; c.beginPath(); c.arc(player.x+player.w/2, player.y+player.h/2, TILE_SIZE, 0, Math.PI*2); c.fill();
+    c.restore();
+}
+function drawCat(p) {
+    ctx.save(); ctx.translate(p.x+p.w/2, p.y+p.h/2);
+    if(p.isBig) ctx.scale(1.3, 1.3); if(!p.facingRight) ctx.scale(-1, 1); if(p.crouching) ctx.scale(1.1, 0.6);
+    if(gameState==='GOAL_ANIM') ctx.rotate(0); else if(p.dead) ctx.rotate(frameCount*0.2);
+    ctx.fillStyle='#FFF'; ctx.strokeStyle='#DDD'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.ellipse(0,4,12,8,0,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(8,-4,9,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(4,-10); ctx.lineTo(2,-16); ctx.lineTo(10,-10); ctx.fill(); ctx.beginPath(); ctx.moveTo(12,-10); ctx.lineTo(14,-16); ctx.lineTo(6,-10); ctx.fill();
+    ctx.fillStyle='#333'; if(p.dead) ctx.fillText('x x',4,-2); else { ctx.beginPath(); ctx.arc(6,-5,1.5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(10,-5,1.5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.moveTo(7,-2); ctx.lineTo(8,-1); ctx.lineTo(9,-2); ctx.stroke(); }
+    ctx.strokeStyle='#FFF'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(-10,2); const wag = (!p.dead && Math.abs(p.vx)>0.1) ? Math.sin(frameCount*0.5)*5 : 0; ctx.quadraticCurveTo(-18,-5+wag, -15,-10+wag); ctx.stroke();
+    ctx.fillStyle='#FFF'; if(Math.abs(p.vx)>0.1 && !p.dead) { const l = Math.sin(frameCount*0.8)*4; ctx.beginPath(); ctx.arc(-6+l,12,3,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(6-l,12,3,0,Math.PI*2); ctx.fill(); } else { ctx.beginPath(); ctx.arc(-6,12,3,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(6,12,3,0,Math.PI*2); ctx.fill(); }
+    ctx.restore();
+}
+function drawTile(c, x, y, t) {
+    const px=x*TILE_SIZE, py=y*TILE_SIZE;
+    if(t===T.HIDDEN||t===T.INVISIBLE_DEATH||t===T.HIDDEN_TRIGGER) return;
+    if(t===T.GROUND||t===T.FALLING||t===T.FAKE||t===T.FAKE_SPIKE) { c.fillStyle='#654321'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.fillStyle='#32CD32'; c.fillRect(px,py,TILE_SIZE,10); }
+    if(t===T.FAKE_SPIKE) { c.fillStyle='#C0C0C0'; c.beginPath(); c.moveTo(px,py+TILE_SIZE); c.lineTo(px+20,py+5); c.lineTo(px+40,py+TILE_SIZE); c.fill(); }
+    else if(t===T.BLOCK) { c.fillStyle='#A0522D'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.strokeStyle='#5c3a21'; c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); }
+    else if(t===T.HARD_BLOCK) { c.fillStyle='#696969'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); }
+    else if(t===T.Q_BLOCK || t===T.COIN_BLOCK) { c.fillStyle=t===T.COIN_BLOCK?'#FFD700':'#FFA500'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.fillStyle='#B8860B'; c.font='bold 24px sans-serif'; c.textAlign='center'; c.fillText(t===T.COIN_BLOCK?'$':'?',px+20,py+30); c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); }
+    else if(t===T.MULTI_COIN_BLOCK) { c.fillStyle='#FF69B4'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.fillStyle='#C71585'; c.font='bold 24px sans-serif'; c.textAlign='center'; c.fillText('$',px+20,py+30); c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); }
+    else if(t===T.USED_BLOCK) { c.fillStyle='#5c3a21'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); }
+    else if(t===T.FACE_BLOCK) { c.fillStyle='#FFCC99'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); c.fillStyle='black'; c.font='14px sans-serif'; c.textAlign='center'; c.fillText('( ﾟ∀ﾟ)',px+20,py+25); }
+    else if(t===T.SPIKE) { c.fillStyle='#C0C0C0'; c.beginPath(); c.moveTo(px,py+TILE_SIZE); c.lineTo(px+20,py+5); c.lineTo(px+40,py+TILE_SIZE); c.fill(); }
+    else if(t===T.CEILING_SPIKE) { c.fillStyle='#C0C0C0'; c.beginPath(); c.moveTo(px,py); c.lineTo(px+20,py+35); c.lineTo(px+40,py); c.fill(); }
+    else if(t===T.CHECKPOINT||t===T.CHECKPOINT_ON) { c.fillStyle='#555'; c.fillRect(px+5,py+10,5,30); c.fillStyle=(t===T.CHECKPOINT_ON)?'#00FF00':'#FF0000'; c.beginPath(); c.moveTo(px+10,py+10); c.lineTo(px+35,py+20); c.lineTo(px+10,py+30); c.fill(); }
+    else if(t===T.COIN) { c.fillStyle='#FFD700'; c.beginPath(); c.arc(px+20, py+20, 12, 0, Math.PI*2); c.fill(); c.fillStyle='#DAA520'; c.font='16px monospace'; c.textAlign='center'; c.fillText('$', px+20, py+25); }
+}
+function drawItem(it) {
+    const cx=it.x+it.w/2, cy=it.y+it.h/2; ctx.save(); ctx.translate(cx,cy);
+    if(it.type===I.MUSHROOM) ctx.fillStyle='#FF3333'; else if(it.type===I.POISON) ctx.fillStyle='#800080'; else ctx.fillStyle='#AAA';
+    ctx.beginPath(); ctx.arc(0,-5,15,Math.PI,0); ctx.fill(); ctx.fillStyle='#FFEBCD'; ctx.beginPath(); ctx.ellipse(0,5,9,9,0,0,Math.PI*2); ctx.fill();
+    if(it.type===I.POISON) { ctx.fillStyle='white'; ctx.font='12px sans-serif'; ctx.fillText('☠',-5,-2); } ctx.restore();
+}
+
+// Input
+window.addEventListener('keydown', e => {
+    if(e.key==='ArrowLeft'||e.key==='a') keys.left=true; if(e.key==='ArrowRight'||e.key==='d') keys.right=true;
+    if(e.key==='ArrowUp'||e.key==='w') keys.up=true; if(e.key==='ArrowDown'||e.key==='s') { keys.down=true; keys.hipPressed=true; }
+    if(e.key==='Shift') keys.run=true; if(e.key===' '&&!e.repeat) { keys.jump=true; keys.jumpPressed=true; }
+    if(e.key==='Escape') togglePause();
+});
+window.addEventListener('keyup', e => {
+    if(e.key==='ArrowLeft'||e.key==='a') keys.left=false; if(e.key==='ArrowRight'||e.key==='d') keys.right=false;
+    if(e.key==='ArrowUp'||e.key==='w') keys.up=false; if(e.key==='ArrowDown'||e.key==='s') keys.down=false;
+    if(e.key==='Shift') keys.run=false; if(e.key===' ') keys.jump=false;
+});
+</script>
+</body>
+</html>

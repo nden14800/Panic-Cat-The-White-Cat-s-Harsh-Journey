@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>パニックキャット - 白い猫の過酷な旅</title>
+    <title>パニックキャット - 完全修正版</title>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -17,21 +17,28 @@
             margin: 0; padding: 0;
             background-color: #212529;
             font-family: 'M PLUS Rounded 1c', sans-serif;
-            overflow: hidden; touch-action: none;
-            height: 100vh; display: flex;
+            overflow: hidden; /* スクロール禁止 */
+            touch-action: none; /* スマホでのズーム等禁止 */
+            width: 100vw; height: 100vh;
+            display: flex;
             justify-content: center; align-items: center;
             color: white; user-select: none;
         }
 
         #game-wrapper {
-            position: relative; width: 100%; height: 100%;
+            position: relative; 
+            width: 100%; height: 100%;
+            max-width: 100%; max-height: 100%;
             display: flex; justify-content: center; align-items: center;
             background-color: #333;
         }
 
         canvas#gameCanvas {
-            display: block; box-shadow: 0 0 40px rgba(0,0,0,0.6);
+            display: block; 
+            box-shadow: 0 0 40px rgba(0,0,0,0.6);
             background-color: #87CEEB;
+            max-width: 100%; max-height: 100%;
+            object-fit: contain; /* アスペクト比を維持して収める */
         }
 
         #ui-layer {
@@ -45,32 +52,38 @@
             background: rgba(20, 20, 20, 0.96); padding: 1.5rem;
             border-radius: 1rem; text-align: center; pointer-events: auto;
             border: 3px solid #fff;
-            min-width: 600px; max-width: 95%; max-height: 95%;
-            overflow-y: auto; display: none;
+            width: 600px; 
+            max-width: 90%; 
+            max-height: 90vh; /* 画面からはみ出さないように制限 */
+            overflow-y: auto; /* 中身が多い場合はパネル内でスクロール */
+            display: none;
             box-shadow: 0 20px 50px rgba(0,0,0,0.9); backdrop-filter: blur(5px);
         }
-        @media (max-width: 650px) { .game-panel { min-width: 95%; } }
         .game-panel.active { display: block; animation: popIn 0.2s ease-out; }
         @keyframes popIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 
-        h1 { color: #FFD700; text-shadow: 3px 3px 0 #000; font-weight: 800; margin-bottom: 0.5rem; }
+        h1 { color: #FFD700; text-shadow: 3px 3px 0 #000; font-weight: 800; margin-bottom: 0.5rem; font-size: clamp(1.5rem, 5vw, 2.5rem); }
         h2 { font-size: 1.1rem; color: #ccc; margin-bottom: 1.5rem; }
 
         /* HUD */
         #hud {
             position: absolute; top: 15px; left: 20px;
             display: flex; flex-direction: column; gap: 5px;
-            font-size: 20px; font-weight: 900;
+            font-size: clamp(16px, 4vw, 20px); font-weight: 900;
             text-shadow: 2px 2px 0px black, -1px -1px 0 #000;
             pointer-events: none; z-index: 10;
         }
         .hud-row { display: flex; gap: 15px; align-items: center; }
 
-        /* Pause Button */
+        /* Buttons */
         #pause-container {
             position: absolute; top: 15px; right: 240px;
             pointer-events: auto; z-index: 11; display: none;
         }
+        @media (max-width: 768px) {
+             #pause-container { right: 15px; top: 90px; } /* スマホ配置調整 */
+        }
+
         .hud-btn {
             background: rgba(0,0,0,0.5); border: 2px solid white; color: white;
             width: 40px; height: 40px; border-radius: 8px; font-size: 20px;
@@ -79,12 +92,13 @@
         }
         .hud-btn:hover { background: rgba(255,255,255,0.2); }
 
-        /* Suicide Button */
         #suicide-btn {
             pointer-events: auto; background: #333; border: 2px solid #ff4444; color: #ff4444;
             width: 40px; height: 40px; border-radius: 50%; display: flex;
             justify-content: center; align-items: center; cursor: pointer; font-size: 20px;
+            opacity: 1; transition: opacity 0.2s;
         }
+        #suicide-btn.disabled { opacity: 0.3; pointer-events: none; }
         #suicide-btn:active { transform: scale(0.9); background: #500; }
 
         /* Mini Map */
@@ -96,29 +110,10 @@
         }
         #minimap-canvas { width: 100%; height: 100%; display: block; border-radius: 6px; }
         
-        /* Route Map Canvas */
         #result-map-canvas, #history-route-canvas { 
             width: 100%; height: 150px; background: #87CEEB; border: 2px solid #fff; margin-bottom: 10px; border-radius: 8px; 
         }
 
-        /* Level Grid */
-        .level-grid {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 8px;
-            margin-bottom: 20px; max-height: 200px; overflow-y: auto;
-            padding: 10px; background: rgba(0,0,0,0.4); border-radius: 10px;
-        }
-        .level-btn {
-            aspect-ratio: 1; display: flex; justify-content: center; align-items: center;
-            background: #495057; border: 2px solid #6c757d; border-radius: 8px;
-            color: white; cursor: pointer; font-weight: bold; font-size: 1.1rem; transition: all 0.1s;
-        }
-        .level-btn.unlocked { background: #0d6efd; border-color: #0a58ca; box-shadow: 0 4px 0 #084298; }
-        .level-btn.unlocked:active { transform: translateY(4px); box-shadow: none; }
-        .level-btn.locked { opacity: 0.5; cursor: not-allowed; }
-
-        /* Scroll Box */
-        .scroll-box { max-height: 350px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 5px; padding: 5px; }
-        
         /* Shop Items */
         .shop-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #444; }
         .shop-item:last-child { border-bottom: none; }
@@ -154,7 +149,9 @@
         @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
 
         .cheat-warning-box { border: 2px solid #ff4444; background: rgba(50, 0, 0, 0.8); color: #ffcccc; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-size: 0.9rem; text-align: left; }
-        .cheat-warning-title { font-weight: bold; color: #ff4444; font-size: 1.1rem; margin-bottom: 5px; display: block;}
+        
+        /* 初期残機設定用 */
+        #initial-lives-section { display: none; }
     </style>
 </head>
 <body>
@@ -218,10 +215,11 @@
                 </button>
             </div>
 
-            <div class="mb-3 text-start bg-dark p-2 rounded border border-secondary mx-auto" style="max-width: 500px;">
+            <!-- Initial Lives Setting (Only visible first time/reset) -->
+            <div id="initial-lives-section" class="mb-3 text-start bg-dark p-2 rounded border border-secondary mx-auto" style="max-width: 500px;">
                 <label class="form-label text-warning mb-0 small">初期残機設定: <span id="lives-val">10</span></label>
                 <input type="range" class="form-range mt-1" min="1" max="100" value="10" id="lives-range">
-                <div class="text-muted small">※この設定は初期化時のみ適用されます</div>
+                <div class="text-muted small">※この設定は初回のみ適用されます</div>
             </div>
 
             <div class="d-grid gap-2 mx-auto" style="max-width: 500px;">
@@ -241,16 +239,16 @@
                 <span class="fs-5">所持コイン:</span>
                 <span class="text-warning fw-bold fs-4" id="shop-coins">0</span>
             </div>
-            <div class="scroll-box mb-3" id="shop-list"></div>
+            <div class="mb-3" id="shop-list" style="max-height:300px; overflow-y:auto;"></div>
             <button class="btn btn-light fw-bold w-100" onclick="showMenu()">戻る</button>
         </div>
 
         <!-- History Panel -->
-        <div id="history-panel" class="game-panel" style="max-width: 800px;">
+        <div id="history-panel" class="game-panel">
             <h3 class="text-secondary fw-bold"><i class="bi bi-journal-text"></i> プレイ履歴</h3>
-            <div class="scroll-box mb-3">
+            <div class="mb-3" style="max-height:300px; overflow-y:auto;">
                 <table class="table table-dark table-sm table-striped text-start small mb-0" style="vertical-align: middle;">
-                    <thead><tr><th>日時</th><th>LV</th><th>Time</th><th>Coin</th><th>Life</th><th>Map</th></tr></thead>
+                    <thead><tr><th>日時</th><th>LV</th><th>Time</th><th>Coin</th><th>Map</th></tr></thead>
                     <tbody id="history-table-body"></tbody>
                 </table>
             </div>
@@ -270,12 +268,11 @@
         <!-- Cheat Settings -->
         <div id="cheat-panel" class="game-panel">
             <h3 class="text-danger fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> チート設定</h3>
-            <div class="cheat-warning-box mx-auto" style="max-width: 600px;">
-                <span class="cheat-warning-title">⚠️ 重要事項</span>
-                チート機能を使用すると、ゲームの難易度が崩壊します。<br>
+            <div class="cheat-warning-box mx-auto">
+                ⚠️ チート機能を使用すると、ゲームの難易度が崩壊します。<br>
                 ・クリアしても「ベストタイム」は記録されません。<br>
             </div>
-            <div class="text-start bg-dark p-3 rounded border border-secondary mb-3 d-grid gap-2 mx-auto" style="max-width: 600px; grid-template-columns: 1fr 1fr;">
+            <div class="text-start bg-dark p-3 rounded border border-secondary mb-3 d-grid gap-2 mx-auto" style="grid-template-columns: 1fr 1fr;">
                 <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="cheat-flight"><label class="form-check-label" for="cheat-flight">空を飛ぶ</label></div>
                 <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="cheat-god"><label class="form-check-label" for="cheat-god">無敵モード</label></div>
                 <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="cheat-speed"><label class="form-check-label" for="cheat-speed">超スピード</label></div>
@@ -283,7 +280,7 @@
                 <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="cheat-inf-coin"><label class="form-check-label" for="cheat-inf-coin">コイン無限 (∞)</label></div>
                 <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="cheat-unlock" onchange="generateLevelList()"><label class="form-check-label" for="cheat-unlock">全レベル開放</label></div>
             </div>
-            <div class="bg-dark p-3 rounded border border-secondary mb-3 mx-auto" style="max-width: 600px;">
+            <div class="bg-dark p-3 rounded border border-secondary mb-3 mx-auto">
                 <h5 class="text-warning text-start">数値指定変更</h5>
                 <div class="input-group mb-2">
                     <span class="input-group-text bg-secondary text-light border-secondary">コイン</span>
@@ -316,31 +313,25 @@
         <!-- Help Modal -->
         <div id="help-panel" class="game-panel">
             <h3 class="text-info fw-bold">遊び方</h3>
-            <div class="text-start bg-dark p-3 rounded border border-secondary mb-3 small mx-auto" style="max-width: 600px;">
+            <div class="text-start bg-dark p-3 rounded border border-secondary mb-3 small mx-auto">
                 <p class="lead mb-3">ゴールポールの旗を上げればクリア！</p>
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <h5 class="text-warning border-bottom border-secondary pb-1">PC操作</h5>
                         <ul class="ps-3 mb-0">
                             <li><strong>← →</strong> : 移動</li>
-                            <li><strong>SPACE</strong> : ジャンプ (2回押しで2段ジャンプ)</li>
+                            <li><strong>SPACE</strong> : ジャンプ</li>
                             <li><strong>SHIFT</strong> : ダッシュ</li>
-                            <li><strong>↓</strong> : しゃがむ / <span class="text-info">ヒップドロップ</span></li>
+                            <li><strong>↓</strong> : しゃがむ / ヒップドロップ</li>
                             <li><strong>ESC</strong> : 一時停止</li>
                         </ul>
                     </div>
                     <div class="col-md-6">
                         <h5 class="text-warning border-bottom border-secondary pb-1">スマホ操作</h5>
                         <ul class="ps-3 mb-0">
-                            <li><strong>JUMP</strong> : ジャンプ (2回押しで2段ジャンプ)</li>
-                            <li><strong>走る</strong> : ダッシュ</li>
-                            <li><strong>ヒップ</strong> : <span class="text-info">ヒップドロップ (空中)</span></li>
+                            <li>画面下のボタンで操作します</li>
                         </ul>
                     </div>
-                </div>
-                <div class="mt-3 p-2 bg-secondary bg-opacity-25 rounded">
-                    <strong>💡 ヒント:</strong> ハテナブロックの上からヒップドロップすると、アイテムを出せます！<br>
-                    <strong>💀 敵:</strong> 茶色い猫は敵です。上から踏めば倒せますが、横から当たるとダメージを受けます。
                 </div>
             </div>
             <button class="btn btn-light fw-bold w-100" onclick="showMenu()">閉じる</button>
@@ -352,7 +343,7 @@
             <p class="mb-4 text-light">残機がなくなりました</p>
             <div class="d-grid gap-2 mt-4 text-start mx-auto" style="max-width: 500px;">
                 <button class="btn btn-light fw-bold py-3" onclick="retryGame()" id="go-retry-btn" disabled>
-                    コンティニュー <span class="d-block small fw-normal text-secondary">※残機が必要です (ショップで購入してください)</span>
+                    コンティニュー <span class="d-block small fw-normal text-secondary">※ショップで残機を買ってください</span>
                 </button>
                 <button class="btn btn-danger fw-bold py-3" onclick="continueNegative()">
                     💀 残機マイナスで継続 <span class="d-block small fw-normal text-light">※借金状態でその場復活</span>
@@ -364,7 +355,7 @@
         <!-- Suicide Confirm -->
         <div id="suicide-panel" class="game-panel" style="border-color: #ff4444;">
             <h3 class="text-danger">あきらめますか？</h3>
-            <p>詰み状態など、どうしても進めない場合に使用します。</p>
+            <p>詰み状態など、どうしても進めない場合に使用します。<br>残機を1つ消費してリスポーンします。</p>
             <div class="d-flex justify-content-center gap-3 mt-4">
                 <button class="btn btn-danger btn-lg px-5" onclick="executeSuicide()">はい (<span id="suicide-life-calc"></span>)</button>
                 <button class="btn btn-secondary btn-lg px-5" onclick="closeSuicide()">いいえ</button>
@@ -439,9 +430,18 @@ const TILE_SIZE = 40;
 
 // Data
 let gameData = { lives: 10, coins: 0, maxReachedLevel: 1, history: [], bestTimes: {}, settings: { initialLives: 10 } };
-const saved = localStorage.getItem('panicCat_save_v7');
-if(saved) { try { gameData = { ...gameData, ...JSON.parse(saved) }; } catch(e){} }
-function saveData() { localStorage.setItem('panicCat_save_v7', JSON.stringify(gameData)); }
+// 初回起動かどうかの判定フラグ
+let isFirstBoot = true; 
+
+// Load Save
+const saved = localStorage.getItem('panicCat_save_v8');
+if(saved) { 
+    try { 
+        gameData = { ...gameData, ...JSON.parse(saved) }; 
+        isFirstBoot = false;
+    } catch(e){} 
+}
+function saveData() { localStorage.setItem('panicCat_save_v8', JSON.stringify(gameData)); }
 
 // Constants
 const GRAVITY = 0.6; const FRICTION = 0.82; const JUMP_FORCE = 12.5; 
@@ -477,14 +477,26 @@ function initSystem() {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
     
-    document.getElementById('lives-range').value = gameData.settings.initialLives;
-    updateMenuDisplay();
+    // 残機設定スライダーの初期化
+    const range = document.getElementById('lives-range');
+    range.value = gameData.settings.initialLives; // 保存値があれば反映
+    document.getElementById('lives-val').innerText = range.value;
     
-    document.getElementById('lives-range').addEventListener('input', e => {
-        gameData.settings.initialLives = parseInt(e.target.value);
-        updateMenuDisplay();
-        saveData();
+    range.addEventListener('input', e => {
+        const val = parseInt(e.target.value);
+        gameData.settings.initialLives = val;
+        document.getElementById('lives-val').innerText = val;
+        // ここではまだsaveDataしない。ゲーム開始時に適用する。
     });
+
+    // 初回またはリセット時のみ残機設定を表示
+    if (isFirstBoot) {
+        document.getElementById('initial-lives-section').style.display = 'block';
+    } else {
+        document.getElementById('initial-lives-section').style.display = 'none';
+    }
+
+    updateMenuDisplay();
 
     ['flight', 'god', 'speed', 'infinite', 'unlock', 'inf-coin'].forEach(id => {
         const cid = id === 'inf-coin' ? 'infiniteCoins' : id;
@@ -507,36 +519,45 @@ function initSystem() {
 }
 
 function updateMenuDisplay() {
-    document.getElementById('lives-val').innerText = gameData.settings.initialLives;
     document.getElementById('max-reached-display').innerText = "到達: Lv." + fmt(gameData.maxReachedLevel);
     document.getElementById('cont-level-display').innerText = fmt(gameData.maxReachedLevel);
-    // Menu opens to max reached level by default
     document.getElementById('level-input').value = gameData.maxReachedLevel;
     generateLevelList();
 }
 
 function bindTouch(id, key) {
     const el = document.getElementById(id);
-    el.addEventListener('touchstart', e => { e.preventDefault(); keys[key]=true; el.classList.add('pressed'); if(key==='jump') keys.jumpPressed=true; if(key==='hip') keys.hipPressed=true; });
-    el.addEventListener('touchend', e => { e.preventDefault(); keys[key]=false; el.classList.remove('pressed'); });
+    el.addEventListener('touchstart', e => { 
+        e.preventDefault(); 
+        if(!canControl()) return; 
+        keys[key]=true; el.classList.add('pressed'); 
+        if(key==='jump') keys.jumpPressed=true; 
+        if(key==='hip') keys.hipPressed=true; 
+    });
+    el.addEventListener('touchend', e => { 
+        e.preventDefault(); 
+        keys[key]=false; el.classList.remove('pressed'); 
+    });
 }
 
 function resizeCanvas() {
     const w = document.getElementById('game-wrapper');
     const aspect = GAME_WIDTH/GAME_HEIGHT;
     let dw = w.clientWidth, dh = w.clientHeight;
+    
+    // 画面内に収まるように計算
     if (dw/dh > aspect) dw = dh*aspect; else dh = dw/aspect;
+    
     const dpr = window.devicePixelRatio || 1;
     canvas.width = dw*dpr; canvas.height = dh*dpr;
     canvas.style.width = `${dw}px`; canvas.style.height = `${dh}px`;
     ctx.scale(dpr * (dw/GAME_WIDTH), dpr * (dh/GAME_HEIGHT));
     
-    const mm = document.getElementById('minimap-canvas');
-    mm.width = mm.clientWidth*dpr; mm.height = mm.clientHeight*dpr;
-    const rm = document.getElementById('result-map-canvas');
-    rm.width = rm.clientWidth*dpr; rm.height = rm.clientHeight*dpr;
-    const hm = document.getElementById('history-route-canvas'); 
-    if(hm) { hm.width = hm.clientWidth*dpr; hm.height = hm.clientHeight*dpr; }
+    // 他のCanvasもリサイズ
+    ['minimap-canvas', 'result-map-canvas', 'history-route-canvas'].forEach(id => {
+        const c = document.getElementById(id);
+        if(c) { c.width = c.clientWidth*dpr; c.height = c.clientHeight*dpr; }
+    });
 }
 
 function updateCheatStatus() {
@@ -545,7 +566,22 @@ function updateCheatStatus() {
 
 function showPanel(id) {
     document.querySelectorAll('.game-panel').forEach(p => p.classList.remove('active'));
-    document.getElementById('pause-container').style.display = (id || gameState !== 'PLAYING') ? 'none' : 'block';
+    // ポーズボタンの表示制御
+    const pauseBtn = document.getElementById('pause-container');
+    if (!id && gameState === 'PLAYING') {
+        pauseBtn.style.display = 'block';
+    } else {
+        pauseBtn.style.display = 'none';
+    }
+
+    // 自殺ボタンの有効無効（プレイ中のみ）
+    const suicideBtn = document.getElementById('suicide-btn');
+    if (gameState === 'PLAYING' && !id) {
+        suicideBtn.classList.remove('disabled');
+    } else {
+        suicideBtn.classList.add('disabled');
+    }
+
     if(id) {
         document.getElementById(id).classList.add('active');
         if(id==='clear-panel') setTimeout(drawResultMap, 100);
@@ -561,10 +597,7 @@ const SHOP_ITEMS = [
     { n: 10, cost: 900, discount: 10, saved: 100 },
     { n: 25, cost: 2125, discount: 15, saved: 375 },
     { n: 50, cost: 4000, discount: 20, saved: 1000 },
-    { n: 100, cost: 7500, discount: 25, saved: 2500 },
-    { n: 250, cost: 17500, discount: 30, saved: 7500 },
-    { n: 500, cost: 32500, discount: 35, saved: 17500 },
-    { n: 1000, cost: 60000, discount: 40, saved: 40000, old: 100000 }
+    { n: 100, cost: 7500, discount: 25, saved: 2500 }
 ];
 
 function showShop() {
@@ -576,29 +609,20 @@ function showShop() {
     SHOP_ITEMS.forEach(item => {
         const div = document.createElement('div');
         div.className = 'shop-item';
-        
         let originalPrice = Math.round(item.cost / ((100 - item.discount)/100));
-        let priceHtml = '';
-        if(item.discount > 0) {
-            priceHtml = `<span class="old-price">${fmt(originalPrice)}</span><span class="new-price">${fmt(item.cost)}</span>`;
-        } else {
-            priceHtml = `<span class="new-price">${fmt(item.cost)}</span>`;
-        }
-
+        let priceHtml = item.discount > 0 
+            ? `<span class="old-price">${fmt(originalPrice)}</span><span class="new-price">${fmt(item.cost)}</span>`
+            : `<span class="new-price">${fmt(item.cost)}</span>`;
         let badge = item.discount > 0 ? `<span class="discount-badge">${item.discount}% OFF</span>` : '';
         let savedText = item.saved ? `<span class="saved-text">${fmt(item.saved)}コインお得</span>` : '';
-        
         const canBuy = activeCheats.infiniteCoins || gameData.coins >= item.cost;
-        const afterCoin = activeCheats.infiniteCoins ? "∞" : fmt(gameData.coins - item.cost);
-        const displayCoin = activeCheats.infiniteCoins ? "∞" : fmt(gameData.coins);
-
+        
         div.innerHTML = `
             <div><span class="fw-bold text-light">❤ ${fmt(item.n)}UP</span></div>
             <div class="price-container">
                 <div>${priceHtml} <i class="bi bi-circle-fill text-warning small"></i>${badge}</div>
                 ${savedText}
                 <button class="btn btn-sm btn-primary mt-1" ${canBuy?'':'disabled'} onclick="buyLives(${item.n}, ${item.cost})">購入</button>
-                <span class="coin-calc">${displayCoin} → ${afterCoin}</span>
             </div>`;
         list.appendChild(div);
     });
@@ -630,7 +654,7 @@ function showHistory() {
     [...gameData.history].reverse().forEach((h, idx) => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${h.date}</td><td>${fmt(h.level)}</td><td>${h.time}</td><td>${fmt(h.coins)}</td><td>${fmt(h.lives)}</td>
+            <td>${h.date}</td><td>${fmt(h.level)}</td><td>${h.time}</td><td>${fmt(h.coins)}</td>
             <td><button class="btn btn-sm btn-outline-info" onclick="viewHistoryRoute(${gameData.history.length - 1 - idx})"><i class="bi bi-map"></i></button></td>
         `;
         tbody.appendChild(row);
@@ -643,63 +667,88 @@ function viewHistoryRoute(index) {
     if(!h) return;
     document.getElementById('route-view-level').innerText = h.level;
     showPanel('route-view-panel');
-    
-    // Draw to canvas
     const c = document.getElementById('history-route-canvas');
-    // Temp generate world to draw
     generateWorld(h.level); 
-    // Use history trail
-    const tempTrail = h.trail || [];
-    drawMapOnCanvas(c.getContext('2d'), false, tempTrail);
+    drawMapOnCanvas(c.getContext('2d'), false, h.trail || []);
 }
 
 /** LEVEL UTILS **/
-function generateLevelList() {
-    const list = document.getElementById('level-list');
-    if(list) list.innerHTML = ''; // This list doesn't strictly exist in DOM structure but good for extensibility
-    const max = activeCheats.unlock ? 100 : Math.min(10000, gameData.maxReachedLevel + 9);
-    // Note: Visual button list removed in favor of input box but function kept for potential restoration
-}
-
+function generateLevelList() { /* Stub for logic if needed */ }
 function adjustLevelInput(d) { const i = document.getElementById('level-input'); let v = parseInt(i.value)+d; if(v<1)v=1; if(v>10000)v=10000; i.value=v; }
 function startGameFromInput() { const v = parseInt(document.getElementById('level-input').value); if(v>=1&&v<=10000){ if(v<=gameData.maxReachedLevel||activeCheats.unlock) startGame(v); else alert("まだ解放されていません"); } }
 function copySeed() { navigator.clipboard.writeText(currentSeed).then(()=>alert(`SEED: ${currentSeed} コピーしました`)); }
+
 function showMenu() { 
     gameState = 'MENU'; 
+    isTimerRunning = false; 
+    startTime = 0; elapsedTime = 0; // タイマーリセット
     updateMenuDisplay();
     showPanel('menu-panel'); 
-    isTimerRunning = false; 
 }
+
 function startGame(lv) { 
+    // 初回プレイの場合、スライダーの値を残機に適用
+    if(isFirstBoot) {
+        gameData.lives = gameData.settings.initialLives;
+        isFirstBoot = false;
+        document.getElementById('initial-lives-section').style.display = 'none';
+        saveData();
+    }
+
     currentLevel = lv; 
     if(gameState==='MENU' && gameData.lives <= 0) {
-        if(gameData.lives === 0 && gameData.coins < 100) {
+        if(gameData.lives <= 0 && gameData.coins < 100) {
              alert("残機がありません。初期化するかチートを使用してください。");
              return;
         }
     }
     levelStartCoins=gameData.coins; levelStartLives=gameData.lives; 
     player.respawnX=100; player.respawnY=200; allowNegativeLives=false; 
-    resetLevel(true); showPanel(null); gameState='PLAYING'; startTimer(); 
+    
+    resetLevel(true); 
+    
+    // 修正：状態遷移してからパネル更新（ボタン表示のため）
+    gameState='PLAYING'; 
+    showPanel(null); 
+    
+    startTimer(); 
 }
+
 function retryGame() { 
-    if(gameData.lives <= 0 && !allowNegativeLives && !activeCheats.god) {
-        return; 
-    }
+    if(gameData.lives <= 0 && !allowNegativeLives && !activeCheats.god) return; 
     allowNegativeLives=false; player.respawnX=100; player.respawnY=200; 
-    resetLevel(true); showPanel(null); gameState='PLAYING'; startTimer(); 
+    resetLevel(true); 
+    
+    // 修正
+    gameState='PLAYING'; 
+    showPanel(null); 
+    
+    startTimer(); 
 }
+
 function resetAllData() {
     if(confirm("本当に全てのデータを初期化しますか？")) {
-        localStorage.removeItem('panicCat_save_v7');
+        localStorage.removeItem('panicCat_save_v8');
         location.reload();
     }
 }
+
 function startTimer() { startTime = Date.now(); elapsedTime = 0; isTimerRunning = true; trail = []; }
-function nextLevel() { currentLevel++; levelStartCoins=gameData.coins; levelStartLives=gameData.lives; player.respawnX=100; player.respawnY=200; resetLevel(true); showPanel(null); gameState='PLAYING'; startTimer(); }
+function nextLevel() { 
+    currentLevel++; levelStartCoins=gameData.coins; levelStartLives=gameData.lives; player.respawnX=100; player.respawnY=200; 
+    resetLevel(true); 
+    
+    // 修正
+    gameState='PLAYING'; 
+    showPanel(null); 
+    
+    startTimer(); 
+}
 
 /** PAUSE **/
 function togglePause() {
+    if (gameState === 'MENU' || gameState === 'CLEARED' || gameState === 'GAMEOVER' || player.dead) return;
+
     if(gameState === 'PLAYING') {
         gameState = 'PAUSED'; showPanel('pause-panel'); isTimerRunning = false;
     } else if (gameState === 'PAUSED') {
@@ -707,13 +756,25 @@ function togglePause() {
     }
 }
 
+/** CONTROL CHECK **/
+function canControl() {
+    return gameState === 'PLAYING' && !player.dead;
+}
+
 /** GAME LOGIC **/
 function resetLevel(fullReset) {
-    enemies = []; // Reset enemies
+    enemies = [];
     generateWorld(currentLevel);
-    player.x=player.respawnX; player.y=player.respawnY; player.vx=0; player.vy=0; player.dead=false; player.grounded=false; player.isBig=false; player.invincible=0; player.crouching=false; player.jumpCount=0; player.isHipDropping=false;
-    items=[]; particles=[]; keys.jumpPressed=false; keys.hipPressed=false; goalPole.flagY=0;
+    player.x=player.respawnX; player.y=player.respawnY; player.vx=0; player.vy=0; 
+    player.dead=false; player.grounded=false; player.isBig=false; player.invincible=0; 
+    player.crouching=false; player.jumpCount=0; player.isHipDropping=false;
+    items=[]; particles=[]; 
+    keys.jumpPressed=false; keys.hipPressed=false; 
+    // ジャンプなどの入力をクリア
+    keys.left=false; keys.right=false; keys.jump=false; keys.down=false;
+    goalPole.flagY=0;
 }
+
 function generateWorld(lv) {
     currentSeed = lv * 777; document.getElementById('menu-seed-val').innerText = currentSeed;
     let seed = currentSeed; const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
@@ -734,7 +795,6 @@ function generateWorld(lv) {
                 for(let y=gY+1; y<height; y++) levelMap[y][cx+x] = T.GROUND; 
                 if(rand() < 0.3) levelMap[gY-4][cx+x] = T.COIN; 
                 
-                // Spawn Enemy Chance (Normal ground only)
                 if(t === T.GROUND && rand() < 0.08 && x > 2 && x < len - 2) {
                     spawnEnemy((cx+x)*TILE_SIZE, (gY-1)*TILE_SIZE);
                 }
@@ -762,47 +822,86 @@ function generateWorld(lv) {
 
 function gameLoop() {
     update(); draw();
-    if(gameState === 'PLAYING') { updateHUD(); drawMiniMap(); }
+    if(gameState === 'PLAYING' || gameState === 'PAUSED' || gameState === 'CLEARED') { 
+        updateHUD(); 
+        drawMiniMap(); 
+    }
     requestAnimationFrame(gameLoop);
 }
 
 function update() {
     if(gameState === 'GOAL_ANIM') { updateGoalAnim(); return; }
-    if(gameState !== 'PLAYING' || player.dead) return;
+    if(gameState !== 'PLAYING') return; // タイトル画面などで操作不可にする
+    if(player.dead) return;
 
-    if((keys.down || keys.hip) && !player.grounded && !player.crouching && keys.hipPressed) { player.vy = HIP_DROP_SPEED; player.isHipDropping = true; keys.hipPressed = false; }
+    // ヒップドロップ開始
+    if((keys.down || keys.hip) && !player.grounded && !player.crouching && keys.hipPressed) { 
+        player.vy = HIP_DROP_SPEED; 
+        player.isHipDropping = true; 
+        keys.hipPressed = false; 
+    }
 
+    // ジャンプ・重力
     if(activeCheats.flight && (keys.jump || keys.up)) { player.vy = -5; player.grounded = false; }
     else if(activeCheats.flight && keys.down) player.vy = 5;
     else {
         if(keys.jumpPressed) {
-            if(player.grounded) { player.vy = -JUMP_FORCE; player.grounded = false; player.jumpCount = 1; keys.jumpPressed = false; }
-            else if (player.jumpCount < 2 || activeCheats.infinite) { player.vy = -JUMP_FORCE * 0.9; player.jumpCount++; keys.jumpPressed = false; spawnParticles(player.x, player.y+20, '#FFF'); }
+            if(player.grounded) { 
+                player.vy = -JUMP_FORCE; 
+                player.grounded = false; 
+                player.jumpCount = 1; 
+                spawnParticles(player.x, player.y+20, '#FFF'); 
+            } else if (player.jumpCount < 2 || activeCheats.infinite) { 
+                player.vy = -JUMP_FORCE * 0.9; 
+                player.jumpCount++; 
+                spawnParticles(player.x, player.y+20, '#FFF'); 
+            }
+            // ジャンプ処理後は必ずフラグを下ろす（暴発防止）
+            keys.jumpPressed = false; 
         }
         player.vy += activeCheats.flight ? 0 : GRAVITY;
     }
 
+    // 左右移動
     let acc = keys.run ? RUN_ACCEL : MOVE_SPEED;
     let cap = keys.run ? (activeCheats.speed ? RUN_MAX_SPEED*1.5 : RUN_MAX_SPEED) : (activeCheats.speed ? MAX_SPEED*1.5 : MAX_SPEED);
 
     if(keys.left) { player.vx -= acc; player.facingRight = false; }
     if(keys.right) { player.vx += acc; player.facingRight = true; }
 
+    // 摩擦
     if(keys.down && player.grounded && !activeCheats.flight) { player.crouching = true; player.vx *= CROUCH_FRICTION; }
     else { player.crouching = false; player.vx *= FRICTION; }
 
     if(player.vx > cap) player.vx = cap; if(player.vx < -cap) player.vx = -cap;
     if(Math.abs(player.vx) < 0.1) player.vx = 0;
 
-    let steps = Math.ceil(Math.max(Math.abs(player.vx), Math.abs(player.vy)) / (TILE_SIZE * 0.4));
+    // 移動と衝突判定（サブループ）
+    // ステップ数を増やしてすり抜けを防ぐ
+    let steps = Math.ceil(Math.max(Math.abs(player.vx), Math.abs(player.vy)) / (TILE_SIZE * 0.25));
     let svx = player.vx/steps; let svy = player.vy/steps;
-    for(let i=0; i<steps; i++) { player.x += svx; checkCollisionX(player); player.y += svy; checkCollisionY(player); }
+    
+    for(let i=0; i<steps; i++) { 
+        // X移動
+        player.x += svx; 
+        checkCollisionX(player); 
+        
+        // Y移動
+        player.y += svy; 
+        checkCollisionY(player); 
+    }
 
+    // ゴール判定
     if(player.x+player.w > goalPole.x && player.x < goalPole.x+10 && player.y < goalPole.y+goalPole.h && player.y+player.h > goalPole.y) startGoalAnim();
+    
+    // 落下死（偽の地面等で落ちた場合）
     if(player.y > GAME_HEIGHT + 100) die();
+    
     if(player.invincible > 0) player.invincible--;
+    
     updateItems();
     updateEnemies();
+    
     if(frameCount%5===0 && !player.dead) trail.push({x: player.x+player.w/2, y: player.y+player.h/2});
     frameCount++;
 }
@@ -818,44 +917,27 @@ function updateEnemies() {
         
         e.vy += GRAVITY;
         e.x += e.vx;
-        
-        // Map Collision X
+        // Enemy Collision X
         let startX = Math.floor(e.x/TILE_SIZE), endX = Math.floor((e.x+e.w-0.1)/TILE_SIZE);
         let startY = Math.floor(e.y/TILE_SIZE), endY = Math.floor((e.y+e.h-0.1)/TILE_SIZE);
-        let collisionX = false;
-        
-        for(let y=startY; y<=endY; y++) for(let x=startX; x<=endX; x++) {
-            if(isSolid(getTile(x, y))) collisionX = true;
-        }
-        if(collisionX) {
-            e.vx *= -1; // Turn around
-            e.x += e.vx * 2;
-        }
+        let colX = false;
+        for(let y=startY; y<=endY; y++) for(let x=startX; x<=endX; x++) if(isSolid(getTile(x, y))) colX = true;
+        if(colX) { e.vx *= -1; e.x += e.vx * 2; }
 
         e.y += e.vy;
-        
-        // Map Collision Y
+        // Enemy Collision Y
         startX = Math.floor(e.x/TILE_SIZE); endX = Math.floor((e.x+e.w-0.1)/TILE_SIZE);
         startY = Math.floor(e.y/TILE_SIZE); endY = Math.floor((e.y+e.h-0.1)/TILE_SIZE);
         for(let y=startY; y<=endY; y++) for(let x=startX; x<=endX; x++) {
-            if(isSolid(getTile(x, y))) {
-                if(e.vy > 0) {
-                    e.y = y * TILE_SIZE - e.h;
-                    e.vy = 0;
-                }
-            }
+            if(isSolid(getTile(x, y)) && e.vy > 0) { e.y = y * TILE_SIZE - e.h; e.vy = 0; }
         }
 
         if (e.y > GAME_HEIGHT + 100) { enemies.splice(i, 1); continue; }
 
-        // Player Collision
         if (intersect(player, e) && !player.dead) {
-            // Check if player landed on top (Mario style)
             if (player.vy > 0 && player.y + player.h < e.y + e.h / 2 + 10) {
-                e.dead = true;
-                player.vy = -8; // Bounce
-                spawnParticles(e.x, e.y, '#8B4513');
-                if(!activeCheats.infiniteCoins) gameData.coins += 5; // Bonus
+                e.dead = true; player.vy = -8; spawnParticles(e.x, e.y, '#8B4513');
+                if(!activeCheats.infiniteCoins) gameData.coins += 5;
             } else {
                 hitDamage();
             }
@@ -867,54 +949,89 @@ function performHipDrop() { if(!player.grounded) { player.vy = HIP_DROP_SPEED; p
 function startGoalAnim() { gameState = 'GOAL_ANIM'; player.vx = 0; player.vy = 0; player.x = goalPole.x - 10; isTimerRunning = false; }
 function updateGoalAnim() { if(player.y < goalPole.y + goalPole.h - player.h) player.y += 4; else { if(goalPole.flagY < goalPole.h - 40) goalPole.flagY += 4; else if(gameState !== 'CLEARED') levelClear(); } }
 
+// 衝突判定Y（埋まり防止・すり抜け修正）
 function checkCollisionY(obj) {
     const offsetY = obj.crouching ? (obj.h - obj.crouchH) : 0;
     obj.grounded = false;
-    const startX = Math.floor(obj.x/TILE_SIZE), endX = Math.floor((obj.x+obj.w-0.1)/TILE_SIZE);
-    const startY = Math.floor((obj.y+offsetY)/TILE_SIZE), endY = Math.floor((obj.y+obj.h-0.1)/TILE_SIZE);
 
-    for(let y=startY; y<=endY; y++) for(let x=startX; x<=endX; x++) {
-        const t = getTile(x, y);
-        if(obj===player) {
-            if(t===T.COIN) { levelMap[y][x] = T.EMPTY; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#FFD700'); }
-            if(t===T.CHECKPOINT) { levelMap[y][x] = T.CHECKPOINT_ON; player.respawnX = x*TILE_SIZE; player.respawnY = y*TILE_SIZE; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE, '#00FF00'); }
-            if(t===T.SPIKE || t===T.CEILING_SPIKE) { if(intersect(obj, {x:x*TILE_SIZE+10, y:y*TILE_SIZE+10, w:20, h:20})) hitDamage(); }
-            if(t===T.INVISIBLE_DEATH) die();
-            if(obj.vy<0 && obj.y<(y+1)*TILE_SIZE && obj.y>y*TILE_SIZE) handleHeadBump(x,y,t);
-            if(t===T.HIDDEN_TRIGGER) levelMap[y][x] = T.HARD_BLOCK;
-        }
-        if(isSolid(t)) {
-            if(t===T.FAKE||t===T.FAKE_SPIKE||t===T.CEILING_SPIKE) continue;
-            if(obj.vy > 0) {
-                if(obj.y+obj.h <= y*TILE_SIZE+16) {
-                    obj.y = y*TILE_SIZE - obj.h; obj.vy = 0; obj.grounded = true; obj.jumpCount = 0;
-                    if((t===T.Q_BLOCK || t===T.COIN_BLOCK || t===T.MULTI_COIN_BLOCK || t===T.BLOCK) && player.isHipDropping) {
-                        handleHeadBump(x,y,t); player.vy = -6;
+    const startX = Math.floor(obj.x / TILE_SIZE);
+    const endX = Math.floor((obj.x + obj.w - 0.1) / TILE_SIZE);
+    const startY = Math.floor((obj.y + offsetY) / TILE_SIZE);
+    const endY = Math.floor((obj.y + obj.h - 0.1) / TILE_SIZE);
+
+    for (let y = startY; y <= endY; y++) {
+        for (let x = startX; x <= endX; x++) {
+            const t = getTile(x, y);
+            
+            // 特殊タイル処理
+            if(obj===player) {
+                if(t===T.COIN) { levelMap[y][x] = T.EMPTY; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#FFD700'); }
+                if(t===T.CHECKPOINT) { levelMap[y][x] = T.CHECKPOINT_ON; player.respawnX = x*TILE_SIZE; player.respawnY = y*TILE_SIZE; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE, '#00FF00'); }
+                if(t===T.SPIKE || t===T.CEILING_SPIKE) { if(intersect(obj, {x:x*TILE_SIZE+10, y:y*TILE_SIZE+10, w:20, h:20})) hitDamage(); }
+                if(t===T.INVISIBLE_DEATH) die();
+                if(obj.vy<0 && obj.y<(y+1)*TILE_SIZE && obj.y>y*TILE_SIZE) handleHeadBump(x,y,t);
+                if(t===T.HIDDEN_TRIGGER) levelMap[y][x] = T.HARD_BLOCK;
+            }
+
+            // 固いブロックへの衝突
+            if (isSolid(t)) {
+                // FAKEはisSolidでfalseが返るのでここには来ない（通り抜ける）
+                
+                // 下方向への移動（着地）
+                if (obj.vy >= 0) {
+                    // プレイヤーの足元がタイルの上面付近にある場合のみ着地
+                    if (obj.y + obj.h <= (y * TILE_SIZE) + (obj.vy + 10)) {
+                        obj.y = y * TILE_SIZE - obj.h;
+                        obj.vy = 0;
+                        obj.grounded = true;
+                        obj.jumpCount = 0;
+                        
+                        if((t===T.Q_BLOCK || t===T.COIN_BLOCK || t===T.MULTI_COIN_BLOCK || t===T.BLOCK) && player.isHipDropping) {
+                             handleHeadBump(x,y,t); player.vy = -6;
+                        }
+                        if(t===T.FALLING && obj===player) setTimeout(()=>{ if(levelMap[y][x]===T.FALLING){levelMap[y][x]=T.EMPTY; spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#aaa');} },150);
+                        player.isHipDropping = false;
                     }
-                    if(t===T.FALLING && obj===player) setTimeout(()=>{ if(levelMap[y][x]===T.FALLING){levelMap[y][x]=T.EMPTY; spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#aaa');} },150);
-                    player.isHipDropping = false; 
+                } 
+                // 上方向への移動（頭突き）
+                else if (obj.vy < 0) {
+                     if (obj.y >= (y + 1) * TILE_SIZE - 10) {
+                        obj.y = (y + 1) * TILE_SIZE;
+                        obj.vy = 0;
+                    }
                 }
-            } else if(obj.vy < 0) {
-                if(t!==T.FALLING && obj.y >= (y+1)*TILE_SIZE - 10) { obj.y = (y+1)*TILE_SIZE; obj.vy = 0; }
             }
         }
     }
 }
 
+// 衝突判定X（ワープ修正）
 function checkCollisionX(obj) {
     const offsetY = obj.crouching ? (obj.h - obj.crouchH) : 0;
-    const startX = Math.floor(obj.x/TILE_SIZE), endX = Math.floor((obj.x+obj.w-0.1)/TILE_SIZE);
-    const startY = Math.floor((obj.y+offsetY)/TILE_SIZE), endY = Math.floor((obj.y+obj.h-0.1)/TILE_SIZE);
-    for(let y=startY; y<=endY; y++) for(let x=startX; x<=endX; x++) {
-        const t = getTile(x, y);
-        if(t===T.COIN && obj===player) { levelMap[y][x] = T.EMPTY; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#FFD700'); }
-        if(obj===player && t===T.CHECKPOINT) { levelMap[y][x] = T.CHECKPOINT_ON; player.respawnX = x*TILE_SIZE; player.respawnY = y*TILE_SIZE; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE, '#00FF00'); }
-        if(t===T.INVISIBLE_DEATH && obj===player) die();
-        if(t===T.HIDDEN_TRIGGER) levelMap[y][x] = T.HARD_BLOCK;
-        if(isSolid(t)) {
-            if(t===T.FAKE||t===T.FALLING||t===T.FAKE_SPIKE||t===T.CEILING_SPIKE) continue;
-            if(obj.vx > 0) { obj.x = x*TILE_SIZE - obj.w; } else if(obj.vx < 0) { obj.x = (x+1)*TILE_SIZE; }
-            obj.vx = 0;
+    const startX = Math.floor(obj.x / TILE_SIZE);
+    const endX = Math.floor((obj.x + obj.w - 0.1) / TILE_SIZE);
+    const startY = Math.floor((obj.y + offsetY) / TILE_SIZE);
+    const endY = Math.floor((obj.y + obj.h - 0.1) / TILE_SIZE);
+
+    for (let y = startY; y <= endY; y++) {
+        for (let x = startX; x <= endX; x++) {
+            const t = getTile(x, y);
+            
+            if(t===T.COIN && obj===player) { levelMap[y][x] = T.EMPTY; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#FFD700'); }
+            if(obj===player && t===T.CHECKPOINT) { levelMap[y][x] = T.CHECKPOINT_ON; player.respawnX = x*TILE_SIZE; player.respawnY = y*TILE_SIZE; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE, '#00FF00'); }
+            if(t===T.INVISIBLE_DEATH && obj===player) die();
+            if(t===T.HIDDEN_TRIGGER) levelMap[y][x] = T.HARD_BLOCK;
+            
+            if (isSolid(t)) {
+                if (obj.vx > 0) {
+                    // 右移動中：左端に合わせる
+                    obj.x = x * TILE_SIZE - obj.w - 0.01; 
+                } else if (obj.vx < 0) {
+                    // 左移動中：右端に合わせる
+                    obj.x = (x + 1) * TILE_SIZE + 0.01;
+                }
+                obj.vx = 0;
+            }
         }
     }
 }
@@ -939,21 +1056,51 @@ function handleHeadBump(x, y, t) {
     }
 }
 
-function isSolid(t) { return (t >= 1 && t <= 3) || (t >= 6 && t <= 12) || t===T.CEILING_SPIKE || t===T.HIDDEN_TRIGGER || t===T.COIN_BLOCK || t===T.MULTI_COIN_BLOCK; }
+function isSolid(t) { 
+    // FAKE(9) はSolidではないので false を返す
+    return (t >= 1 && t <= 3) || (t >= 6 && t <= 12 && t !== T.FAKE) || t===T.CEILING_SPIKE || t===T.HIDDEN_TRIGGER || t===T.COIN_BLOCK || t===T.MULTI_COIN_BLOCK; 
+}
 function getTile(x, y) { if(y<0||y>=levelMap.length||x<0||x>=levelMap[0].length) return T.EMPTY; return levelMap[y][x]; }
 function intersect(a, b) { return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
 function spawnItem(x, y, type) { items.push({x:x, y:y, w:30, h:30, vx:2, vy:-5, type:type, active:false}); setTimeout(()=>{ if(items.length>0) items[items.length-1].active=true; },300); }
 function updateItems() { for(let i=items.length-1; i>=0; i--) { let it = items[i]; it.vy += GRAVITY; it.x += it.vx; checkCollisionX(it); it.y += it.vy; checkCollisionY(it); if(it.vx===0) it.vx=(Math.random()>0.5?2:-2); if(it.active && intersect(player, it)) { if(it.type===I.MUSHROOM) { if(!player.isBig){player.isBig=true; player.y-=10; spawnParticles(player.x,player.y,'#ff0000');} } else if(it.type===I.POISON) die(); else if(it.type===I.FAKE) spawnParticles(player.x,player.y,'#888'); items.splice(i,1); } else if(it.y>GAME_HEIGHT+50) items.splice(i,1); } }
 function hitDamage() { if(activeCheats.god || player.invincible>0) return; if(player.isBig){ player.isBig=false; player.invincible=120; player.vy=-5; spawnParticles(player.x,player.y,'#fff'); } else die(); }
-function die() { if(activeCheats.god || player.dead) return; player.dead = true; player.vy = -12; isTimerRunning = false; trail.push(null); saveData(); setTimeout(() => { const cur = activeCheats.god ? '∞' : fmt(gameData.lives); const nxt = activeCheats.god ? '∞' : fmt(gameData.lives - 1); document.getElementById('dead-lives-info').innerText = `❤️ ${cur} → ${nxt}`; if(gameData.lives <= 0 && !allowNegativeLives && !activeCheats.god) { document.getElementById('go-retry-btn').disabled=true; showPanel('gameover-panel'); } else showPanel('dead-panel'); }, 800); }
-function respawnPlayer() { if(player.dead) { if(!activeCheats.god && !allowNegativeLives) gameData.lives--; if(allowNegativeLives) gameData.lives--; } if(gameData.lives < 0 && !allowNegativeLives) { showPanel('gameover-panel'); return; } saveData(); resetLevel(false); showPanel(null); gameState = 'PLAYING'; isTimerRunning = true; }
+
+function die() { 
+    if(activeCheats.god || player.dead) return; 
+    player.dead = true; player.vy = -12; isTimerRunning = false; trail.push(null); saveData(); 
+    // 死亡時にキー入力をリセット
+    keys.left=false; keys.right=false; keys.jump=false; keys.down=false;
+    setTimeout(() => { 
+        const cur = activeCheats.god ? '∞' : fmt(gameData.lives); 
+        const nxt = activeCheats.god ? '∞' : fmt(gameData.lives - 1); 
+        document.getElementById('dead-lives-info').innerText = `❤️ ${cur} → ${nxt}`; 
+        if(gameData.lives <= 0 && !allowNegativeLives && !activeCheats.god) { 
+            document.getElementById('go-retry-btn').disabled=true; 
+            showPanel('gameover-panel'); 
+        } else {
+            showPanel('dead-panel'); 
+        }
+    }, 800); 
+}
+
+function respawnPlayer() { 
+    if(player.dead) { if(!activeCheats.god && !allowNegativeLives) gameData.lives--; if(allowNegativeLives) gameData.lives--; } 
+    if(gameData.lives < 0 && !allowNegativeLives) { showPanel('gameover-panel'); return; } 
+    saveData(); resetLevel(false); 
+    
+    // 修正
+    gameState = 'PLAYING'; 
+    showPanel(null); 
+    
+    isTimerRunning = true; 
+}
 function continueNegative() { allowNegativeLives = true; respawnPlayer(); }
 
 function levelClear() { 
     isTimerRunning = false; 
     gameState = 'CLEARED'; 
     
-    // FIX: Update if current level is equal to or greater than current max reached
     if(currentLevel >= gameData.maxReachedLevel && !activeCheats.unlock) { 
         gameData.maxReachedLevel = currentLevel + 1; 
     } 
@@ -972,17 +1119,48 @@ function levelClear() {
     document.getElementById('result-life-diff').innerText = `${fmt(levelStartLives)} → ${fmt(gameData.lives)}`; 
     
     const now = new Date(); 
-    gameData.history.push({ date: `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`, level: currentLevel, time: formatTime(elapsedTime), coins: gameData.coins, lives: gameData.lives, trail: [...trail] }); 
+    gameData.history.push({ date: `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`, level: currentLevel, time: formatTime(elapsedTime), coins: gameData.coins, trail: [...trail] }); 
     saveData(); 
     setTimeout(drawResultMap, 100); 
     showPanel('clear-panel'); 
 }
 
-function confirmSuicide() { isTimerRunning = false; const cur = activeCheats.god?'∞':fmt(gameData.lives); const nxt = activeCheats.god?'∞':fmt(gameData.lives-1); document.getElementById('suicide-life-calc').innerText = `${cur} → ${nxt}`; showPanel('suicide-panel'); }
+function confirmSuicide() { 
+    if(gameState !== 'PLAYING') return; // プレイ中以外は無効
+    isTimerRunning = false; 
+    const cur = activeCheats.god?'∞':fmt(gameData.lives); 
+    const nxt = activeCheats.god?'∞':fmt(gameData.lives-1); 
+    document.getElementById('suicide-life-calc').innerText = `${cur} → ${nxt}`; 
+    showPanel('suicide-panel'); 
+}
 function closeSuicide() { showPanel(null); isTimerRunning = true; }
-function executeSuicide() { if(!activeCheats.god && !allowNegativeLives) gameData.lives--; if(allowNegativeLives) gameData.lives--; saveData(); if(gameData.lives < 0 && !allowNegativeLives) showPanel('gameover-panel'); else respawnPlayer(); }
-function updateHUD() { document.getElementById('disp-level').innerText = fmt(currentLevel); const lSpan = document.getElementById('disp-lives'); lSpan.innerText = activeCheats.god ? "∞" : fmt(gameData.lives); lSpan.style.color = gameData.lives < 0 ? '#ff0000' : '#ff4d4d'; document.getElementById('disp-coins').innerText = activeCheats.infiniteCoins ? "∞" : fmt(gameData.coins); if(isTimerRunning) elapsedTime = Date.now() - startTime; document.getElementById('disp-time').innerText = formatTime(elapsedTime); }
-function formatTime(ms) { const c = Math.floor((ms%1000)/10); const s = Math.floor((ms/1000)%60); const m = Math.floor((ms/60000)); return `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}.${c.toString().padStart(2,'0')}`; }
+function executeSuicide() { 
+    if(!activeCheats.god && !allowNegativeLives) gameData.lives--; 
+    if(allowNegativeLives) gameData.lives--; 
+    saveData(); 
+    if(gameData.lives < 0 && !allowNegativeLives) showPanel('gameover-panel'); else respawnPlayer(); 
+}
+
+function updateHUD() { 
+    document.getElementById('disp-level').innerText = fmt(currentLevel); 
+    const lSpan = document.getElementById('disp-lives'); 
+    lSpan.innerText = activeCheats.god ? "∞" : fmt(gameData.lives); 
+    lSpan.style.color = gameData.lives < 0 ? '#ff0000' : '#ff4d4d'; 
+    document.getElementById('disp-coins').innerText = activeCheats.infiniteCoins ? "∞" : fmt(gameData.coins); 
+    
+    if(gameState === 'PLAYING' && isTimerRunning && startTime > 0) {
+        elapsedTime = Date.now() - startTime; 
+    }
+    document.getElementById('disp-time').innerText = formatTime(elapsedTime); 
+}
+
+function formatTime(ms) { 
+    if(isNaN(ms) || ms < 0) return "00:00.00";
+    const c = Math.floor((ms%1000)/10); 
+    const s = Math.floor((ms/1000)%60); 
+    const m = Math.floor((ms/60000)); 
+    return `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}.${c.toString().padStart(2,'0')}`; 
+}
 function spawnParticles(x, y, color) { for(let i=0; i<6; i++) particles.push({x:x, y:y, vx:(Math.random()-0.5)*8, vy:(Math.random()-0.5)*8, color:color, life:20}); }
 
 function draw() {
@@ -1047,41 +1225,25 @@ function drawEnemy(e) {
     const cy = e.y + e.h/2;
     ctx.save();
     ctx.translate(cx, cy);
-    if(e.vx > 0) ctx.scale(-1, 1); // Flip based on direction
-    
-    // Body (Brown Cat)
+    if(e.vx > 0) ctx.scale(-1, 1); 
     ctx.fillStyle = '#8B4513';
     ctx.beginPath(); ctx.ellipse(0, 4, 13, 10, 0, 0, Math.PI*2); ctx.fill();
-    
-    // Head
     ctx.beginPath(); ctx.arc(8, -4, 10, 0, Math.PI*2); ctx.fill();
-    
-    // Ears
     ctx.beginPath(); ctx.moveTo(4, -10); ctx.lineTo(2, -18); ctx.lineTo(12, -10); ctx.fill();
     ctx.beginPath(); ctx.moveTo(14, -10); ctx.lineTo(16, -18); ctx.lineTo(8, -10); ctx.fill();
-
-    // Angry Eyes
-    ctx.fillStyle = '#FFD700'; // Yellow eyes
+    ctx.fillStyle = '#FFD700'; 
     ctx.beginPath(); ctx.arc(6, -5, 2.5, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(12, -5, 2.5, 0, Math.PI*2); ctx.fill();
-    
-    // Pupils
     ctx.fillStyle = 'black';
     ctx.beginPath(); ctx.arc(6, -5, 1, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(12, -5, 1, 0, Math.PI*2); ctx.fill();
-
-    // Angry Eyebrows
-    ctx.strokeStyle = 'black';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'black'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(4, -9); ctx.lineTo(8, -6); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(14, -9); ctx.lineTo(10, -6); ctx.stroke();
-
-    // Feet animation
     ctx.fillStyle = '#5A2E0E';
     const l = Math.sin(frameCount * 0.5) * 5;
     ctx.beginPath(); ctx.arc(-5 + l, 12, 3.5, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(5 - l, 12, 3.5, 0, Math.PI*2); ctx.fill();
-
     ctx.restore();
 }
 
@@ -1110,15 +1272,23 @@ function drawItem(it) {
 
 // Input
 window.addEventListener('keydown', e => {
-    if(e.key==='ArrowLeft'||e.key==='a') keys.left=true; if(e.key==='ArrowRight'||e.key==='d') keys.right=true;
-    if(e.key==='ArrowUp'||e.key==='w') keys.up=true; if(e.key==='ArrowDown'||e.key==='s') { keys.down=true; keys.hipPressed=true; }
-    if(e.key==='Shift') keys.run=true; if(e.key===' '&&!e.repeat) { keys.jump=true; keys.jumpPressed=true; }
-    if(e.key==='Escape') togglePause();
+    if(e.key==='Escape') { togglePause(); return; }
+    if(!canControl()) return; // プレイ中以外は入力を受け付けない
+
+    if(e.key==='ArrowLeft'||e.key==='a') keys.left=true; 
+    if(e.key==='ArrowRight'||e.key==='d') keys.right=true;
+    if(e.key==='ArrowUp'||e.key==='w') keys.up=true; 
+    if(e.key==='ArrowDown'||e.key==='s') { keys.down=true; keys.hipPressed=true; }
+    if(e.key==='Shift') keys.run=true; 
+    if(e.key===' '&&!e.repeat) { keys.jump=true; keys.jumpPressed=true; }
 });
 window.addEventListener('keyup', e => {
-    if(e.key==='ArrowLeft'||e.key==='a') keys.left=false; if(e.key==='ArrowRight'||e.key==='d') keys.right=false;
-    if(e.key==='ArrowUp'||e.key==='w') keys.up=false; if(e.key==='ArrowDown'||e.key==='s') keys.down=false;
-    if(e.key==='Shift') keys.run=false; if(e.key===' ') keys.jump=false;
+    if(e.key==='ArrowLeft'||e.key==='a') keys.left=false; 
+    if(e.key==='ArrowRight'||e.key==='d') keys.right=false;
+    if(e.key==='ArrowUp'||e.key==='w') keys.up=false; 
+    if(e.key==='ArrowDown'||e.key==='s') keys.down=false;
+    if(e.key==='Shift') keys.run=false; 
+    if(e.key===' ') keys.jump=false;
 });
 </script>
 </body>

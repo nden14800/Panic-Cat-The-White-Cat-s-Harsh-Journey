@@ -266,7 +266,7 @@
             <h3 class="text-secondary fw-bold"><i class="bi bi-journal-text"></i> プレイ履歴</h3>
             <div class="mb-3" style="max-height:300px; overflow-y:auto;">
                 <table class="table table-dark table-sm table-striped text-start small mb-0" style="vertical-align: middle;">
-                    <thead><tr><th>日時</th><th>LV</th><th>Time</th><th>Coin</th><th>Map</th></tr></thead>
+                    <thead><tr><th>日時</th><th>LV</th><th>Time</th><th>Coin</th><th><i class="bi bi-heart-fill text-danger"></i></th><th>Map</th></tr></thead>
                     <tbody id="history-table-body"></tbody>
                 </table>
             </div>
@@ -802,6 +802,7 @@ function showHistory() {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${h.date}</td><td>${fmt(h.level)}</td><td>${h.time}</td><td>${fmt(h.coins)}</td>
+            <td class="fw-bold text-danger">${h.lives !== undefined ? fmt(h.lives) : '-'}</td>
             <td><button class="btn btn-sm btn-outline-info" onclick="viewHistoryRoute(${gameData.history.length - 1 - idx})"><i class="bi bi-map"></i></button></td>
         `;
         tbody.appendChild(row);
@@ -1483,7 +1484,17 @@ function levelClear() {
     document.getElementById('result-coins').innerText = earned; 
     document.getElementById('result-life-diff').innerText = `${fmt(levelStartLives)} → ${fmt(gameData.lives)}`; 
     const now = new Date(); 
-    gameData.history.push({ date: `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`, level: currentLevel, time: formatTime(elapsedTime), coins: gameData.coins, trail: [...trail] }); 
+    
+    // 履歴データの保存 (livesを追加)
+    gameData.history.push({ 
+        date: `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`, 
+        level: currentLevel, 
+        time: formatTime(elapsedTime), 
+        coins: gameData.coins,
+        lives: gameData.lives, 
+        trail: [...trail] 
+    }); 
+    
     saveData(); 
     setTimeout(drawResultMap, 100); 
     showPanel('clear-panel'); 

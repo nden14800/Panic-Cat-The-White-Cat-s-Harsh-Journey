@@ -52,7 +52,7 @@
             background: rgba(20, 20, 20, 0.96); padding: 1.5rem;
             border-radius: 1rem; text-align: center; pointer-events: auto;
             border: 3px solid #fff;
-            width: 650px; 
+            width: 700px; 
             max-width: 95%; 
             max-height: 95vh; 
             overflow-y: auto;
@@ -98,7 +98,7 @@
         #suicide-btn.disabled { opacity: 0.3; pointer-events: none; }
         #suicide-btn:active { transform: scale(0.9); background: #500; }
 
-        /* Result Maps (Not visible during play) */
+        /* Result Maps */
         #result-map-canvas, #history-route-canvas { 
             width: 100%; height: 150px; background: #87CEEB; border: 2px solid #fff; margin-bottom: 10px; border-radius: 8px; 
         }
@@ -114,6 +114,35 @@
         .saved-text { font-size: 0.75rem; color: #00ff88; display: block; text-align: right; }
         .coin-calc { font-size: 0.75rem; color: #aaa; margin-top: 4px; font-family: monospace; }
         .shop-section-title { background: #444; color: #ddd; padding: 5px; font-size: 0.9rem; font-weight: bold; text-align: left; margin-top: 10px; border-radius: 4px; }
+
+        /* Level Grid */
+        #level-grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(65px, 1fr));
+            gap: 8px;
+            padding: 10px;
+            max-height: 60vh;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            border: 1px solid #555;
+        }
+        .level-btn {
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 1.1rem;
+            padding: 8px 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            line-height: 1.1;
+        }
+        /* Custom scrollbar */
+        #level-grid-container::-webkit-scrollbar { width: 10px; }
+        #level-grid-container::-webkit-scrollbar-track { background: #222; }
+        #level-grid-container::-webkit-scrollbar-thumb { background: #555; border-radius: 5px; }
+        #level-grid-container::-webkit-scrollbar-thumb:hover { background: #777; }
 
         /* Mobile Controls */
         #mobile-controls {
@@ -167,8 +196,6 @@
         <button class="hud-btn" onclick="togglePause()"><i class="bi bi-pause-fill"></i></button>
     </div>
 
-    <!-- Mini Map has been removed as per request -->
-
     <div id="ui-layer">
         <!-- Main Menu -->
         <div id="menu-panel" class="game-panel active">
@@ -187,37 +214,48 @@
                 <i class="bi bi-clipboard copy-btn ms-2 text-primary" style="cursor:pointer" onclick="copySeed()" title="コピー"></i>
             </div>
 
-            <!-- Level Select -->
+            <!-- Start / Continue Area -->
             <div class="bg-dark p-3 rounded border border-secondary mb-3 mx-auto" style="max-width: 500px;">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="small text-light">レベル選択 (1 - 1,000)</span>
-                    <span class="small text-warning" id="max-reached-display">到達: Lv.1</span>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="small text-light">進捗状況</span>
+                    <span class="small text-warning fw-bold" id="max-reached-display">到達: Lv.1</span>
                 </div>
-                <div class="input-group mb-2">
-                    <button class="btn btn-outline-light" onclick="adjustLevelInput(-1)">-</button>
-                    <input type="number" id="level-input" class="form-control text-center fw-bold bg-dark text-light" value="1" min="1" max="1000">
-                    <button class="btn btn-outline-light" onclick="adjustLevelInput(1)">+</button>
-                </div>
-                <button class="btn btn-warning w-100 fw-bold" onclick="startGameFromInput()">
-                    <i class="bi bi-play-fill"></i> このレベルでスタート
+
+                <!-- Level Select Button -->
+                <button class="btn btn-outline-warning w-100 fw-bold mb-3" onclick="showLevelSelect()">
+                    <i class="bi bi-grid-3x3-gap-fill"></i> レベルを選択する (1 - 1000)
                 </button>
-            </div>
 
-            <!-- Initial Lives Setting (Only visible first time/reset) -->
-            <div id="initial-lives-section" class="mb-3 text-start bg-dark p-2 rounded border border-secondary mx-auto" style="max-width: 500px;">
-                <label class="form-label text-warning mb-0 small">初期残機設定: <span id="lives-val">10</span></label>
-                <input type="range" class="form-range mt-1" min="1" max="100" value="10" id="lives-range">
-                <div class="text-muted small">※この設定は初回のみ適用されます</div>
-            </div>
+                <!-- Initial Lives Setting (Only visible first time/reset) -->
+                <div id="initial-lives-section" class="mb-3 text-start border-top border-secondary pt-2">
+                    <label class="form-label text-warning mb-0 small">初期残機設定: <span id="lives-val">10</span></label>
+                    <input type="range" class="form-range mt-1" min="1" max="100" value="10" id="lives-range">
+                    <div class="text-muted small">※この設定は初回のみ適用されます</div>
+                </div>
 
-            <div class="d-grid gap-2 mx-auto" style="max-width: 500px;">
-                <button class="btn btn-warning btn-lg fw-bold py-3" style="box-shadow: 0 4px 0 #b48900;" onclick="startGame(gameData.maxReachedLevel)">
+                <!-- Main Play Button -->
+                <button class="btn btn-warning btn-lg w-100 fw-bold py-3" style="box-shadow: 0 4px 0 #b48900;" onclick="startGame(gameData.maxReachedLevel)">
                     <i class="bi bi-play-fill"></i> 続きから遊ぶ (Lv.<span id="cont-level-display">1</span>)
                 </button>
-                <button class="btn btn-danger btn-sm fw-bold mt-3" onclick="resetAllData()">
-                    <i class="bi bi-trash"></i> データ初期化
-                </button>
+
+                <div class="mt-3">
+                    <button class="btn btn-danger btn-sm fw-bold" onclick="resetAllData()">
+                        <i class="bi bi-trash-fill"></i> データ初期化
+                    </button>
+                </div>
             </div>
+        </div>
+
+        <!-- Level Select Panel -->
+        <div id="level-select-panel" class="game-panel">
+            <h3 class="text-warning fw-bold mb-3"><i class="bi bi-grid-3x3-gap-fill"></i> レベル選択</h3>
+            <p class="small text-secondary mb-2">クリア済み、または挑戦可能なレベルを選択できます</p>
+            <div id="level-grid-container" class="mb-3">
+                <!-- Grid items generated by JS -->
+            </div>
+            <button class="btn btn-light fw-bold w-100" onclick="showMenu()">
+                <i class="bi bi-arrow-return-left"></i> メニューへ戻る
+            </button>
         </div>
 
         <!-- Shop Panel -->
@@ -228,7 +266,7 @@
                 <span class="text-warning fw-bold fs-4" id="shop-coins">0</span>
             </div>
             <div class="mb-3 text-start" id="shop-list" style="max-height:450px; overflow-y:auto;"></div>
-            <button class="btn btn-light fw-bold w-100" onclick="showMenu()">戻る</button>
+            <button class="btn btn-light fw-bold w-100" onclick="showMenu()"><i class="bi bi-arrow-return-left"></i> 戻る</button>
         </div>
 
         <!-- History Panel -->
@@ -240,7 +278,7 @@
                     <tbody id="history-table-body"></tbody>
                 </table>
             </div>
-            <button class="btn btn-light fw-bold w-100" onclick="showMenu()">戻る</button>
+            <button class="btn btn-light fw-bold w-100" onclick="showMenu()"><i class="bi bi-arrow-return-left"></i> 戻る</button>
         </div>
 
         <!-- Route View Modal -->
@@ -250,7 +288,7 @@
             <div class="bg-dark p-2 rounded mb-3 border border-secondary">
                 <canvas id="history-route-canvas"></canvas>
             </div>
-            <button class="btn btn-light fw-bold w-100" onclick="showHistory()">戻る</button>
+            <button class="btn btn-light fw-bold w-100" onclick="showHistory()"><i class="bi bi-arrow-return-left"></i> 戻る</button>
         </div>
 
         <!-- Cheat Settings -->
@@ -266,7 +304,7 @@
                 <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="cheat-speed"><label class="form-check-label" for="cheat-speed">超スピード</label></div>
                 <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="cheat-infinite"><label class="form-check-label" for="cheat-infinite">無限ジャンプ</label></div>
                 <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="cheat-inf-coin"><label class="form-check-label" for="cheat-inf-coin">コイン無限 (∞)</label></div>
-                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="cheat-unlock" onchange="generateLevelList()"><label class="form-check-label" for="cheat-unlock">全レベル開放</label></div>
+                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="cheat-unlock" onchange="generateLevelGrid()"><label class="form-check-label" for="cheat-unlock">全レベル開放</label></div>
             </div>
             <div class="bg-dark p-3 rounded border border-secondary mb-3 mx-auto">
                 <h5 class="text-warning text-start">数値指定変更</h5>
@@ -281,7 +319,7 @@
                     <button class="btn btn-danger" onclick="setCheatLives()">設定</button>
                 </div>
             </div>
-            <button class="btn btn-light fw-bold w-100" onclick="showMenu()">閉じる</button>
+            <button class="btn btn-light fw-bold w-100" onclick="showMenu()"><i class="bi bi-x-lg"></i> 閉じる</button>
         </div>
 
         <!-- Pause Menu -->
@@ -293,7 +331,7 @@
                     <i class="bi bi-play-fill"></i> ゲーム再開
                 </button>
                 <button class="btn btn-outline-light" onclick="showMenu()">
-                    <i class="bi bi-house-door"></i> メニューへ戻る
+                    <i class="bi bi-house-door-fill"></i> メニューへ戻る
                 </button>
             </div>
         </div>
@@ -307,8 +345,8 @@
                     <li>見た目通りの床とは限りません。</li>
                     <li>アイテムが助けてくれるとは限りません。</li>
                     <li>何もないところからブロックが現れます。</li>
-                    <li>ゴールフラグですら、あなたを殺しに来るかもしれません。</li>
-                    <li><strong class="text-warning">New!</strong> 偽ゴール、毒キノコ、爆発するコインブロック等、罠が満載です。</li>
+                    <li><strong>New!</strong> 25枚コインが出る「メガコインブロック」が追加されました。</li>
+                    <li><strong>New!</strong> 森、火山、お化け屋敷など多彩なコースが登場します。</li>
                     <li><strong class="text-danger">New!</strong> プレイ中はミニマップが見えません。記憶力が頼りです。</li>
                 </ul>
                 <div class="row mt-3">
@@ -330,7 +368,7 @@
                     </div>
                 </div>
             </div>
-            <button class="btn btn-light fw-bold w-100" onclick="showMenu()">閉じる</button>
+            <button class="btn btn-light fw-bold w-100" onclick="showMenu()"><i class="bi bi-x-lg"></i> 閉じる</button>
         </div>
 
         <!-- Game Over -->
@@ -344,7 +382,7 @@
                 <button class="btn btn-danger fw-bold py-3" onclick="continueNegative()">
                     <i class="bi bi-skull"></i> 残機マイナスで継続 <span class="d-block small fw-normal text-light">※借金状態でその場復活</span>
                 </button>
-                <button class="btn btn-outline-light" onclick="showMenu()">メニューへ戻る</button>
+                <button class="btn btn-outline-light" onclick="showMenu()"><i class="bi bi-house-door-fill"></i> メニューへ戻る</button>
             </div>
         </div>
 
@@ -365,7 +403,7 @@
                 <button class="btn btn-light btn-lg fw-bold" onclick="respawnPlayer()">
                     コンティニュー <span class="ms-2 badge bg-dark text-danger" id="dead-lives-info"></span>
                 </button>
-                <button class="btn btn-outline-light" onclick="showMenu()">メニューへ戻る</button>
+                <button class="btn btn-outline-light" onclick="showMenu()"><i class="bi bi-house-door-fill"></i> メニューへ戻る</button>
             </div>
         </div>
 
@@ -391,8 +429,8 @@
                 <canvas id="result-map-canvas"></canvas>
             </div>
             <div class="d-grid gap-2 mx-auto" style="max-width: 500px;">
-                <button class="btn btn-primary btn-lg fw-bold" onclick="nextLevel()">次のレベルへ</button>
-                <button class="btn btn-outline-light" onclick="showMenu()">メニューへ戻る</button>
+                <button class="btn btn-primary btn-lg fw-bold" onclick="nextLevel()"><i class="bi bi-play-fill"></i> 次のレベルへ</button>
+                <button class="btn btn-outline-light" onclick="showMenu()"><i class="bi bi-house-door-fill"></i> メニューへ戻る</button>
             </div>
         </div>
     </div>
@@ -429,27 +467,32 @@ let gameData = { lives: 10, coins: 0, maxReachedLevel: 1, history: [], bestTimes
 let isFirstBoot = true; 
 
 // Load Save
-const saved = localStorage.getItem('panicCat_save_v12_troll');
+const saved = localStorage.getItem('panicCat_save_v13_grid');
 if(saved) { 
     try { 
         gameData = { ...gameData, ...JSON.parse(saved) }; 
         isFirstBoot = false;
     } catch(e){} 
 }
-function saveData() { localStorage.setItem('panicCat_save_v12_troll', JSON.stringify(gameData)); }
+function saveData() { localStorage.setItem('panicCat_save_v13_grid', JSON.stringify(gameData)); }
 
-// Themes
+// Themes (Expanded)
 const THEMES = [
-    { name: 'PLAIN', bg: '#87CEEB', ground: '#654321', grass: '#32CD32', block: '#A0522D', hard: '#696969' },
-    { name: 'DESERT', bg: '#F4A460', ground: '#D2691E', grass: '#FFD700', block: '#CD853F', hard: '#8B4513' },
-    { name: 'CAVE',   bg: '#000000', ground: '#808080', grass: '#696969', block: '#778899', hard: '#2F4F4F' },
-    { name: 'SNOW',   bg: '#E0FFFF', ground: '#F0FFFF', grass: '#B0E0E6', block: '#ADD8E6', hard: '#708090' },
-    { name: 'CASTLE', bg: '#2c2c2c', ground: '#4a4a4a', grass: '#800000', block: '#808080', hard: '#2F4F4F' }
+    { name: 'PLAIN',   bg: '#87CEEB', ground: '#654321', grass: '#32CD32', block: '#A0522D', hard: '#696969' },
+    { name: 'DESERT',  bg: '#F4A460', ground: '#D2691E', grass: '#FFD700', block: '#CD853F', hard: '#8B4513' },
+    { name: 'CAVE',    bg: '#1a1a1a', ground: '#555555', grass: '#444444', block: '#778899', hard: '#2F4F4F' },
+    { name: 'SNOW',    bg: '#E0FFFF', ground: '#F0FFFF', grass: '#B0E0E6', block: '#ADD8E6', hard: '#708090' },
+    { name: 'CASTLE',  bg: '#2c2c2c', ground: '#4a4a4a', grass: '#800000', block: '#606060', hard: '#2F4F4F' },
+    { name: 'FOREST',  bg: '#2E8B57', ground: '#556B2F', grass: '#006400', block: '#8B4513', hard: '#004d00' },
+    { name: 'VOLCANO', bg: '#400000', ground: '#200000', grass: '#FF4500', block: '#800000', hard: '#1a0000' },
+    { name: 'NIGHT',   bg: '#000033', ground: '#191970', grass: '#483D8B', block: '#4169E1', hard: '#000080' },
+    { name: 'GHOST',   bg: '#2c003e', ground: '#3e2723', grass: '#4a148c', block: '#5d4037', hard: '#1a1a1a' },
+    { name: 'SKY',     bg: '#B0C4DE', ground: '#FFFFFF', grass: '#F0F8FF', block: '#FFFFFF', hard: '#A9A9A9' }
 ];
 
 let currentTheme = THEMES[0];
 
-// Constants & Tile Definitions (Extended)
+// Constants & Tile Definitions
 const GRAVITY = 0.6; const FRICTION = 0.82; const JUMP_FORCE = 12.5; 
 const MOVE_SPEED = 0.8; const MAX_SPEED = 6.0;
 const RUN_ACCEL = 1.2; const RUN_MAX_SPEED = 9.0;
@@ -461,21 +504,16 @@ const T = {
     USED_BLOCK:11, FACE_BLOCK:12, CHECKPOINT:13, CHECKPOINT_ON:14, 
     COIN:15, FAKE_SPIKE:16, CEILING_SPIKE:17, HIDDEN_TRIGGER:18, 
     COIN_BLOCK:19, MULTI_COIN_BLOCK:20,
-    TROLL_HIDDEN: 21, // Looks empty, hits solid, becomes face
-    FALL_TRAP: 22,    // Looks exactly like ground/block, falls instantly
-    DELAY_FALL: 23,   // Looks like ground/block, falls after delay
-    SKY_SPAWNER: 25,   // Invisible, spawns falling debris
-    TRAP_COIN_BLOCK: 26 // Looks like multi coin, but triggers death/enemy
+    TROLL_HIDDEN: 21, 
+    FALL_TRAP: 22,    
+    DELAY_FALL: 23,   
+    MEGA_COIN_BLOCK: 24, // New: 25 Coins
+    SKY_SPAWNER: 25,   
+    TRAP_COIN_BLOCK: 26 
 };
 
 const I = { 
-    MUSHROOM:1,      // Red: Big
-    POISON:2,        // Purple: Death
-    FAKE:3,          // Disappears
-    ENEMY_SPAWN:4,   // Spawns enemy
-    GREY:5,          // Grey: No effect
-    FAKE_GOOD:6,     // Looks Red, Kills
-    FAKE_GREY:7      // Looks Grey, Kills
+    MUSHROOM:1, POISON:2, FAKE:3, ENEMY_SPAWN:4, GREY:5, FAKE_GOOD:6, FAKE_GREY:7 
 }; 
 
 // Runtime
@@ -494,7 +532,7 @@ let flagMoved = false;
 let levelMap = []; let items = []; let particles = []; let enemies = []; let debris = [];
 let activeBlocks = {}; 
 let goalPole = { x:0, y:0, h:0, flagY:0, isFake:false, runaway:false, speed:0 };
-let player = { x:0, y:0, w:30, h:24, crouchH:14, vx:0, vy:0, grounded:false, facingRight:true, dead:false, isBig:false, invincible:0, crouching:false, jumpCount:0, isHipDropping:false, respawnX:100, respawnY:200 };
+let player = { x:0, y:0, w:30, h:30, crouchH:18, vx:0, vy:0, grounded:false, facingRight:true, dead:false, isBig:false, invincible:0, crouching:false, jumpCount:0, isHipDropping:false, respawnX:100, respawnY:200 };
 let keys = { left:false, right:false, up:false, down:false, jump:false, jumpPressed:false, run:false, hip:false, hipPressed:false };
 
 /** INITIALIZATION **/
@@ -527,7 +565,7 @@ function initSystem() {
         document.getElementById(`cheat-${id}`).addEventListener('change', e => {
             activeCheats[cid] = e.target.checked;
             updateCheatStatus();
-            if(id==='unlock') generateLevelList();
+            if(id==='unlock') generateLevelGrid(); // Update grid on unlock
             updateHUD();
         });
     });
@@ -545,7 +583,47 @@ function initSystem() {
 function updateMenuDisplay() {
     document.getElementById('max-reached-display').innerText = "到達: Lv." + fmt(gameData.maxReachedLevel);
     document.getElementById('cont-level-display').innerText = fmt(gameData.maxReachedLevel);
-    document.getElementById('level-input').value = gameData.maxReachedLevel;
+}
+
+/** LEVEL GRID GENERATOR **/
+function showLevelSelect() {
+    generateLevelGrid();
+    showPanel('level-select-panel');
+}
+
+function generateLevelGrid() {
+    const container = document.getElementById('level-grid-container');
+    container.innerHTML = '';
+    
+    const max = 1000;
+    const unlocked = activeCheats.unlock ? 1000 : gameData.maxReachedLevel;
+    
+    const fragment = document.createDocumentFragment();
+    
+    for (let i = 1; i <= max; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'btn level-btn m-0';
+        
+        if (i <= unlocked) {
+            btn.innerText = i;
+            btn.classList.add('btn-outline-warning');
+            btn.onclick = () => startGame(i);
+        } else {
+            // ロック時は鍵アイコンを表示
+            btn.innerHTML = `<i class="bi bi-lock-fill" style="font-size:1.2rem;"></i><div style="font-size:0.6rem; opacity:0.6;">${i}</div>`;
+            btn.classList.add('btn-outline-secondary', 'disabled');
+            btn.style.opacity = '0.5';
+        }
+        
+        fragment.appendChild(btn);
+    }
+    container.appendChild(fragment);
+
+    // Scroll to the latest unlocked level
+    setTimeout(() => {
+        const target = container.children[unlocked - 1];
+        if(target) target.scrollIntoView({ block: 'center' });
+    }, 100);
 }
 
 function bindTouch(id, key) {
@@ -741,9 +819,6 @@ function viewHistoryRoute(index) {
 }
 
 /** LEVEL UTILS **/
-function generateLevelList() { /* Stub */ }
-function adjustLevelInput(d) { const i = document.getElementById('level-input'); let v = parseInt(i.value)+d; if(v<1)v=1; if(v>1000)v=1000; i.value=v; }
-function startGameFromInput() { const v = parseInt(document.getElementById('level-input').value); if(v>=1&&v<=1000){ if(v<=gameData.maxReachedLevel||activeCheats.unlock) startGame(v); else alert("まだ解放されていません"); } }
 function copySeed() { navigator.clipboard.writeText(currentSeed).then(()=>alert(`SEED: ${currentSeed} コピーしました`)); }
 
 function showMenu() { 
@@ -788,7 +863,7 @@ function retryGame() {
 
 function resetAllData() {
     if(confirm("本当に全てのデータを初期化しますか？")) {
-        localStorage.removeItem('panicCat_save_v12_troll');
+        localStorage.removeItem('panicCat_save_v13_grid');
         location.reload();
     }
 }
@@ -863,7 +938,7 @@ function generateWorld(lv) {
             let holeLen = randInt(2, 3 + Math.floor(difficulty * 2));
             if (holeLen > 5) holeLen = 5; 
             
-            // Invisible blocks over pit (The "Air Ceiling" trap)
+            // Invisible blocks over pit
             if (rand() < 0.3 + (difficulty * 0.5)) {
                 let mid = Math.floor(holeLen / 2);
                 levelMap[gY - 4][cx + mid] = T.TROLL_HIDDEN;
@@ -878,7 +953,6 @@ function generateWorld(lv) {
             let len = randInt(2, 6);
             for(let k=0; k<len; k++) {
                 let tile = T.GROUND;
-                // Falling trap that looks like ground
                 if (rand() < 0.05 + (difficulty * 0.25)) {
                     tile = (rand() < 0.5) ? T.FALL_TRAP : T.DELAY_FALL;
                 }
@@ -888,10 +962,8 @@ function generateWorld(lv) {
                     for(let y=gY+1; y<height; y++) levelMap[y][cx+k] = T.GROUND;
                 }
                 
-                // Increased Coin Density
                 if (rand() < 0.3) {
                     levelMap[gY-1][cx+k] = T.COIN;
-                    // Trap Coin? (very rare on ground)
                 }
 
                 if (difficulty > 0.1 && rand() < 0.05 + (difficulty * 0.15)) {
@@ -908,7 +980,7 @@ function generateWorld(lv) {
     while (cx < width - 20) {
         if (levelMap[gY][cx] === T.EMPTY) { cx++; continue; }
         
-        const pat = randInt(0, 15);
+        const pat = randInt(0, 16); 
         
         if (cx > width/2 && !levelMap.flat().includes(T.CHECKPOINT)) {
              levelMap[gY-1][cx] = T.CHECKPOINT;
@@ -921,17 +993,20 @@ function generateWorld(lv) {
 
         if (pat === 0) { // Standard Blocks
             levelMap[gY-3][cx] = T.BLOCK; levelMap[gY-3][cx+1] = T.BLOCK; levelMap[gY-3][cx+2] = T.BLOCK;
-            // Chance to be Coin Block
-            if(rand() < 0.3) levelMap[gY-3][cx+1] = T.COIN_BLOCK;
-            else if(rand() < 0.1) levelMap[gY-3][cx+1] = T.MULTI_COIN_BLOCK;
-            else if(rand() < 0.05) levelMap[gY-3][cx+1] = T.TRAP_COIN_BLOCK;
+            // Chance for special blocks
+            let mid = levelMap[gY-3][cx+1];
+            let r = rand();
+            if(r < 0.2) mid = T.COIN_BLOCK;
+            else if(r < 0.3) mid = T.MULTI_COIN_BLOCK;
+            else if(r < 0.35) mid = T.MEGA_COIN_BLOCK; // 25 Coin Block chance
+            else if(r < 0.38) mid = T.TRAP_COIN_BLOCK;
+            levelMap[gY-3][cx+1] = mid;
 
             if (rand() < 0.5) levelMap[gY-3][cx+1] = T.FALLING;
-            // Upper path bait
             levelMap[gY-6][cx+1] = T.COIN;
             levelMap[gY-7][cx+1] = T.TROLL_HIDDEN;
         }
-        else if (pat === 1) { // Pipe-like
+        else if (pat === 1) { // Pipe-like structure
             levelMap[gY-1][cx] = T.HARD_BLOCK; levelMap[gY-2][cx] = T.HARD_BLOCK;
             if (difficulty > 0.2 && rand() < 0.4) {
                 levelMap[gY-1][cx-1] = T.TROLL_HIDDEN;
@@ -945,7 +1020,7 @@ function generateWorld(lv) {
                 let tx = cx+i; let ty = gY-1-i;
                 if (tx < width) {
                     levelMap[ty][tx] = T.BLOCK;
-                    if (i===3) levelMap[ty][tx] = T.FALL_TRAP; // Falls but looks like block
+                    if (i===3) levelMap[ty][tx] = T.FALL_TRAP;
                 }
             }
         }
@@ -962,34 +1037,31 @@ function generateWorld(lv) {
             }
         }
         else if (pat === 6) { // Kaizo Trap / Syobon Trap
-            // Build a gap that requires a jump
             if(cx + 6 < width) {
-                // Clear ground for gap
                 levelMap[gY][cx+1] = T.EMPTY; levelMap[gY][cx+2] = T.EMPTY; levelMap[gY][cx+3] = T.EMPTY;
-                // Place landing
                 levelMap[gY][cx+4] = T.GROUND;
-                // Place hidden block in jump arc
-                levelMap[gY-4][cx+2] = T.HIDDEN; // Hit head, fall in pit
+                levelMap[gY-4][cx+2] = T.HIDDEN;
                 levelMap[gY-4][cx+3] = T.HIDDEN;
             }
         }
         else if (pat === 7) { // The "Exit Seal" Trap
-             // A hole you drop into
              if(cx + 3 < width) {
                 levelMap[gY][cx] = T.EMPTY;
-                levelMap[gY][cx+1] = T.EMPTY; // Pit
+                levelMap[gY][cx+1] = T.EMPTY; 
                 levelMap[gY][cx+2] = T.EMPTY; 
-                // Floor below
                 levelMap[gY+2][cx] = T.HARD_BLOCK;
                 levelMap[gY+2][cx+1] = T.HARD_BLOCK;
                 levelMap[gY+2][cx+2] = T.HARD_BLOCK;
-                // Coin bait
                 levelMap[gY+1][cx+1] = T.COIN;
-                // Invisible blocks covering the top
                 levelMap[gY-1][cx] = T.TROLL_HIDDEN;
                 levelMap[gY-1][cx+1] = T.TROLL_HIDDEN;
                 levelMap[gY-1][cx+2] = T.TROLL_HIDDEN;
              }
+        }
+        else if (pat === 8) { // Isolated Mega Block
+            levelMap[gY-3][cx] = T.MEGA_COIN_BLOCK;
+            // Troll block under it?
+            if(rand() < 0.3) levelMap[gY-2][cx] = T.TROLL_HIDDEN;
         }
         
         cx += 4;
@@ -1013,7 +1085,6 @@ function gameLoop() {
     update(); draw();
     if(gameState === 'PLAYING' || gameState === 'PAUSED' || gameState === 'CLEARED') { 
         updateHUD(); 
-        // drawMiniMap() removed
     }
     requestAnimationFrame(gameLoop);
 }
@@ -1057,8 +1128,7 @@ function update() {
     if(keys.right) { player.vx += acc; player.facingRight = true; }
 
     let fric = player.crouching ? CROUCH_FRICTION : FRICTION;
-    // Ice physics for Snow theme
-    if(currentTheme.name === 'SNOW') fric = 0.96;
+    if(currentTheme.name === 'SNOW') fric = 0.96; // Ice physics
 
     if(keys.down && player.grounded && !activeCheats.flight) { player.crouching = true; player.vx *= fric; }
     else { player.crouching = false; player.vx *= fric; }
@@ -1078,20 +1148,13 @@ function update() {
     if(goalPole.runaway) {
         let dist = Math.abs(player.x - goalPole.x);
         if(!flagMoved && dist < 200) {
-            // Initiate runaway
-            goalPole.speed = 4.5; // Fast!
+            goalPole.speed = 4.5; 
             flagMoved = true;
         }
         if(flagMoved) {
             goalPole.x += goalPole.speed;
-            // Stop if far enough or hit limit
             if(dist > 600) goalPole.speed = 0;
             else goalPole.speed = 4.5;
-            
-            // Re-calc pole X in grid (simple update, collision remains at init X visually but logic needs update)
-            // Note: In this simple engine, the pole object is separate from grid tiles.
-            // But we might need to clear the old POLE tile and set new one? 
-            // Actually, the POLE tile is just visual in grid, the collision is checked against goalPole object.
         }
     }
 
@@ -1196,10 +1259,9 @@ function checkCollisionY(obj) {
                 if (obj.vy >= 0) {
                     if (obj.y + obj.h <= (y * TILE_SIZE) + (obj.vy + 10)) {
                         obj.y = y * TILE_SIZE - obj.h; obj.vy = 0; obj.grounded = true; obj.jumpCount = 0;
-                        if((t===T.Q_BLOCK || t===T.COIN_BLOCK || t===T.MULTI_COIN_BLOCK || t===T.TRAP_COIN_BLOCK || t===T.BLOCK) && player.isHipDropping) {
+                        if((t===T.Q_BLOCK || t===T.COIN_BLOCK || t===T.MULTI_COIN_BLOCK || t===T.MEGA_COIN_BLOCK || t===T.TRAP_COIN_BLOCK || t===T.BLOCK) && player.isHipDropping) {
                              handleHeadBump(x,y,t); player.vy = -6;
                         }
-                        // Falling Traps
                         if((t===T.FALLING || t===T.FALL_TRAP) && obj===player) {
                              setTimeout(()=>{ 
                                  if(levelMap[y][x]===T.FALLING || levelMap[y][x]===T.FALL_TRAP){
@@ -1253,7 +1315,6 @@ function handleHeadBump(x, y, t) {
     if(t===T.Q_BLOCK) {
         levelMap[y][x] = T.USED_BLOCK; 
         const rnd = Math.random();
-        // Item Odds
         let item = I.MUSHROOM;
         if(rnd < 0.2) item = I.POISON;
         else if(rnd < 0.3) item = I.GREY;
@@ -1264,19 +1325,24 @@ function handleHeadBump(x, y, t) {
         spawnItem(x*TILE_SIZE, y*TILE_SIZE-30, item); 
     } else if(t===T.COIN_BLOCK) {
         levelMap[y][x] = T.USED_BLOCK; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE-20, '#FFD700');
-    } else if(t===T.MULTI_COIN_BLOCK) {
+    } else if(t===T.MULTI_COIN_BLOCK || t===T.MEGA_COIN_BLOCK) {
+        // Multi/Mega Coin Logic
         const key = `${currentLevel}_${x}_${y}`;
-        if(!activeBlocks[key]) activeBlocks[key] = 10;
+        const limit = (t===T.MEGA_COIN_BLOCK) ? 25 : 10;
+        
+        if(!activeBlocks[key]) activeBlocks[key] = limit;
         activeBlocks[key]--;
-        if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE-20, '#FFD700');
+        
+        if(!activeCheats.infiniteCoins) gameData.coins++; 
+        saveData(); 
+        spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE-20, '#FFD700');
+        
         if(activeBlocks[key] <= 0) levelMap[y][x] = T.USED_BLOCK;
     } else if(t===T.TRAP_COIN_BLOCK) {
-        // Looks like multi, but...
         levelMap[y][x] = T.USED_BLOCK;
         spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE-20, '#FF0000');
-        // Spawn Enemy OR Explode
         spawnEnemy(x*TILE_SIZE, y*TILE_SIZE-40);
-        hitDamage(); // Hurt player immediately? Or just spawn enemy. Let's hurt.
+        hitDamage();
     } else if(t===T.HIDDEN || t===T.HIDDEN_TRIGGER || t===T.TROLL_HIDDEN) {
         levelMap[y][x] = T.FACE_BLOCK; 
         spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE+40, '#fff');
@@ -1288,7 +1354,7 @@ function handleHeadBump(x, y, t) {
 
 function isSolid(t) { 
     return (t >= 1 && t <= 3) || (t >= 6 && t <= 12 && t !== T.FAKE) || 
-    t===T.CEILING_SPIKE || t===T.HIDDEN_TRIGGER || t===T.COIN_BLOCK || t===T.MULTI_COIN_BLOCK ||
+    t===T.CEILING_SPIKE || t===T.HIDDEN_TRIGGER || t===T.COIN_BLOCK || t===T.MULTI_COIN_BLOCK || t===T.MEGA_COIN_BLOCK ||
     t===T.TRAP_COIN_BLOCK || t===T.FALL_TRAP || t===T.DELAY_FALL;
 }
 function getTile(x, y) { if(y<0||y>=levelMap.length||x<0||x>=levelMap[0].length) return T.EMPTY; return levelMap[y][x]; }
@@ -1437,7 +1503,6 @@ function drawMapOnCanvas(c, hideSpoilers, trailData) {
         let t = levelMap[y][x];
         if(hideSpoilers) { 
             if(t===T.FAKE||t===T.FAKE_SPIKE||t===T.FALL_TRAP||t===T.DELAY_FALL) t=T.GROUND; 
-            // Fall trap that looks like block
             if((t===T.FALL_TRAP||t===T.DELAY_FALL) && y<11) t=T.BLOCK; 
             if(t===T.FALLING) t=T.BLOCK;
             if(t===T.TRAP_COIN_BLOCK) t=T.MULTI_COIN_BLOCK;
@@ -1449,7 +1514,7 @@ function drawMapOnCanvas(c, hideSpoilers, trailData) {
             else if(t===T.SPIKE||t===T.CEILING_SPIKE) c.fillStyle='#CCC';
             else if(t===T.POLE) { c.fillStyle='#eee'; c.fillRect(x*TILE_SIZE*scale+15*scale, y*TILE_SIZE*scale-200*scale, 10*scale, 240*scale); continue; } 
             else if(t===T.CHECKPOINT_ON) c.fillStyle='#0f0'; else if(t===T.CHECKPOINT) c.fillStyle='#ff0'; else if(t===T.COIN) c.fillStyle='#FFD700';
-            else if(t===T.COIN_BLOCK||t===T.MULTI_COIN_BLOCK||t===T.Q_BLOCK||t===T.TRAP_COIN_BLOCK) c.fillStyle='#DAA520'; 
+            else if(t===T.COIN_BLOCK||t===T.MULTI_COIN_BLOCK||t===T.Q_BLOCK||t===T.TRAP_COIN_BLOCK||t===T.MEGA_COIN_BLOCK) c.fillStyle='#DAA520'; 
             else continue;
             c.fillRect(x*TILE_SIZE*scale, y*TILE_SIZE*scale, drawSize, drawSize);
         }
@@ -1465,18 +1530,138 @@ function drawMapOnCanvas(c, hideSpoilers, trailData) {
     c.restore();
 }
 
+/** 
+ * UPDATED CHARACTER DRAWING
+ * Style: Cute "Chibi" Cat Sprite (Vector-like)
+ */
 function drawCat(p) {
-    ctx.save(); ctx.translate(p.x+p.w/2, p.y+p.h/2);
-    if(p.isBig) ctx.scale(1.3, 1.3); if(!p.facingRight) ctx.scale(-1, 1); if(p.crouching) ctx.scale(1.1, 0.6);
-    if(gameState==='GOAL_ANIM') ctx.rotate(0); else if(p.dead) ctx.rotate(frameCount*0.2);
-    ctx.fillStyle='#FFF'; ctx.strokeStyle='#DDD'; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.ellipse(0,4,12,8,0,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(8,-4,9,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(4,-10); ctx.lineTo(2,-16); ctx.lineTo(10,-10); ctx.fill(); ctx.beginPath(); ctx.moveTo(12,-10); ctx.lineTo(14,-16); ctx.lineTo(6,-10); ctx.fill();
-    ctx.fillStyle='#333'; if(p.dead) { ctx.beginPath(); ctx.moveTo(2,-4); ctx.lineTo(6,0); ctx.moveTo(6,-4); ctx.lineTo(2,0); ctx.stroke(); } else { ctx.beginPath(); ctx.arc(6,-5,1.5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(10,-5,1.5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.moveTo(7,-2); ctx.lineTo(8,-1); ctx.lineTo(9,-2); ctx.stroke(); }
-    ctx.strokeStyle='#FFF'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(-10,2); const wag = (!p.dead && Math.abs(p.vx)>0.1) ? Math.sin(frameCount*0.5)*5 : 0; ctx.quadraticCurveTo(-18,-5+wag, -15,-10+wag); ctx.stroke();
-    ctx.fillStyle='#FFF'; if(Math.abs(p.vx)>0.1 && !p.dead) { const l = Math.sin(frameCount*0.8)*4; ctx.beginPath(); ctx.arc(-6+l,12,3,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(6-l,12,3,0,Math.PI*2); ctx.fill(); } else { ctx.beginPath(); ctx.arc(-6,12,3,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(6,12,3,0,Math.PI*2); ctx.fill(); }
+    const cx = p.x + p.w / 2;
+    const cy = p.y + p.h / 2;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // Facing & Big Mode Scale
+    if (p.isBig) ctx.scale(1.5, 1.5);
+    if (!p.facingRight) ctx.scale(-1, 1);
+    
+    // Crouch Squash
+    if (p.crouching) ctx.scale(1.2, 0.7);
+
+    // Rotation (Dead or Action)
+    if (p.dead) {
+        ctx.rotate(frameCount * 0.2);
+    } else if (p.isHipDropping) {
+        ctx.rotate(Math.PI); // Upside down for hip drop
+    }
+
+    // --- BODY (Small, under head) ---
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    // Rounded Rect Body
+    ctx.roundRect(-8, 5, 16, 12, 5);
+    ctx.fill();
+
+    // --- HEAD (Large, "Chibi" style) ---
+    ctx.beginPath();
+    // Slightly wide circle
+    ctx.ellipse(0, -4, 14, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // --- EARS ---
+    ctx.fillStyle = '#FFFFFF';
+    // Left Ear
+    ctx.beginPath();
+    ctx.moveTo(-10, -10);
+    ctx.lineTo(-14, -18);
+    ctx.lineTo(-4, -12);
+    ctx.fill();
+    // Right Ear
+    ctx.beginPath();
+    ctx.moveTo(10, -10);
+    ctx.lineTo(14, -18);
+    ctx.lineTo(4, -12);
+    ctx.fill();
+
+    // Inner Ears (Pink)
+    ctx.fillStyle = '#FFB6C1';
+    ctx.beginPath();
+    ctx.moveTo(-10, -10);
+    ctx.lineTo(-13, -16);
+    ctx.lineTo(-6, -12);
+    ctx.fill();
+    
+    ctx.beginPath();
+    ctx.moveTo(10, -10);
+    ctx.lineTo(13, -16);
+    ctx.lineTo(6, -12);
+    ctx.fill();
+
+    // --- FACE ---
+    ctx.fillStyle = '#333333';
+    
+    if (p.dead) {
+        // X X Eyes
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#333';
+        ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(-2, -2); ctx.moveTo(-2, -6); ctx.lineTo(-6, -2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(6, -6); ctx.lineTo(2, -2); ctx.moveTo(2, -6); ctx.lineTo(6, -2); ctx.stroke();
+    } else {
+        // Cute Black Eyes
+        ctx.beginPath();
+        ctx.arc(-5, -3, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(5, -3, 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Shine in eyes
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath(); ctx.arc(-4, -4, 0.8, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(6, -4, 0.8, 0, Math.PI*2); ctx.fill();
+
+        // Mouth (Small 'w')
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-2, 1);
+        ctx.quadraticCurveTo(0, 3, 2, 1);
+        ctx.stroke();
+
+        // Cheeks (Pink)
+        ctx.fillStyle = 'rgba(255, 182, 193, 0.6)';
+        ctx.beginPath(); ctx.arc(-8, 0, 2, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(8, 0, 2, 0, Math.PI*2); ctx.fill();
+    }
+
+    // --- TAIL ---
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-8, 10);
+    // Tail animation
+    const tailWag = p.dead ? 0 : Math.sin(frameCount * 0.2) * 3;
+    ctx.quadraticCurveTo(-18, 5 + tailWag, -15, -2 + tailWag);
+    ctx.stroke();
+
+    // --- FEET (Run Animation) ---
+    ctx.fillStyle = '#FFF';
+    const runAnim = (Math.abs(p.vx) > 0.1 && !p.dead) ? Math.sin(frameCount * 0.8) * 3 : 0;
+    
+    // Left Foot
+    ctx.beginPath();
+    ctx.arc(-5 + runAnim, 16, 3, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Right Foot
+    ctx.beginPath();
+    ctx.arc(5 - runAnim, 16, 3, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.restore();
 }
+
 function drawEnemy(e) {
     const cx = e.x + e.w/2; const cy = e.y + e.h/2;
     ctx.save(); ctx.translate(cx, cy); if(e.vx > 0) ctx.scale(-1, 1); 
@@ -1502,14 +1687,14 @@ function drawTile(c, x, y, t) {
     const px=x*TILE_SIZE, py=y*TILE_SIZE;
     if(t===T.HIDDEN||t===T.INVISIBLE_DEATH||t===T.HIDDEN_TRIGGER||t===T.TROLL_HIDDEN||t===T.SKY_SPAWNER) return;
     
-    // Normal Ground & Traps that look like ground
+    // Normal Ground & Traps
     if(t===T.GROUND||t===T.FAKE||t===T.FAKE_SPIKE) { 
         c.fillStyle=currentTheme.ground; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); 
         c.fillStyle=currentTheme.grass; c.fillRect(px,py,TILE_SIZE,10); 
     }
-    // Falling blocks that look like blocks
+    // Falling blocks
     else if(t===T.BLOCK || t===T.FALLING) { c.fillStyle=currentTheme.block; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.strokeStyle='#5c3a21'; c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); }
-    // Fall Trap disguise logic: If y > 10 it's likely ground, else it's likely a stair block
+    // Fall Trap disguise
     else if(t===T.FALL_TRAP || t===T.DELAY_FALL) {
         if (y >= 10) {
             c.fillStyle=currentTheme.ground; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); 
@@ -1529,6 +1714,16 @@ function drawTile(c, x, y, t) {
     }
     else if(t===T.MULTI_COIN_BLOCK || t===T.TRAP_COIN_BLOCK) { 
         c.fillStyle='#FF69B4'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.fillStyle='#C71585'; c.font='bold 24px sans-serif'; c.textAlign='center'; c.fillText('$',px+20,py+30); c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); 
+    }
+    // MEGA COIN BLOCK (New)
+    else if(t===T.MEGA_COIN_BLOCK) {
+        // Gold with sparkle pattern
+        c.fillStyle = '#FFD700'; 
+        c.fillRect(px,py,TILE_SIZE,TILE_SIZE);
+        c.fillStyle = '#FFFACD'; // Light yellow shine
+        c.beginPath(); c.moveTo(px, py); c.lineTo(px+15, py); c.lineTo(px, py+15); c.fill();
+        c.fillStyle='#8B4500'; c.font='bold 24px sans-serif'; c.textAlign='center'; c.fillText('★',px+20,py+30); 
+        c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); 
     }
     
     else if(t===T.USED_BLOCK) { c.fillStyle='#5c3a21'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); }
@@ -1559,7 +1754,6 @@ function drawItem(it) {
     
     // Poison Skull
     if(it.type===I.POISON || it.type===I.FAKE_GOOD || it.type===I.FAKE_GREY) { 
-        // Fake mushrooms look normal until you grab them, so no visual cue for fakes
         if(it.type===I.POISON) {
             ctx.fillStyle='white'; ctx.beginPath(); ctx.moveTo(-4,-4); ctx.lineTo(4,4); ctx.moveTo(4,-4); ctx.lineTo(-4,4); ctx.stroke(); 
         }

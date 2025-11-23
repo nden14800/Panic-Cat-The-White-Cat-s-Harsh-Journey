@@ -1359,7 +1359,23 @@ function checkCollisionX(obj) {
             if(t===T.HIDDEN_SPIKE && obj===player) { levelMap[y][x] = T.SPIKE; hitDamage(); }
             
             if (isSolid(t)) {
-                if (obj.vx > 0) { obj.x = x * TILE_SIZE - obj.w - 0.01; } else if (obj.vx < 0) { obj.x = (x + 1) * TILE_SIZE + 0.01; }
+                // Fix for Warp/Teleport Glitch:
+                // Instead of unconditionally snapping the player to the block edge, check overlap depth.
+                // If overlap is small (edge hit), snap. If overlap is large (spawned inside/vertical entry), do not snap.
+                let overlapX = 0;
+                let threshold = 16; // Threshold for "edge hit"
+
+                if (obj.vx > 0) { 
+                    overlapX = (obj.x + obj.w) - (x * TILE_SIZE);
+                    if (overlapX < threshold) {
+                        obj.x = x * TILE_SIZE - obj.w - 0.01; 
+                    }
+                } else if (obj.vx < 0) { 
+                    overlapX = ((x + 1) * TILE_SIZE) - obj.x;
+                    if (overlapX < threshold) {
+                        obj.x = (x + 1) * TILE_SIZE + 0.01; 
+                    }
+                }
                 obj.vx = 0;
             }
         }
@@ -1587,8 +1603,19 @@ function drawMapOnCanvas(c, hideSpoilers, trailData) {
             else if(t===T.POLE) { c.fillStyle='#eee'; c.fillRect(x*TILE_SIZE*scale+15*scale, y*TILE_SIZE*scale-200*scale, 10*scale, 240*scale); continue; } 
             else if(t===T.CHECKPOINT_ON) c.fillStyle='#0f0'; else if(t===T.CHECKPOINT) c.fillStyle='#ff0'; else if(t===T.COIN) c.fillStyle='#FFD700';
             else if(t===T.COIN_BLOCK||t===T.MULTI_COIN_BLOCK||t===T.Q_BLOCK||t===T.TRAP_COIN_BLOCK||t===T.MEGA_COIN_BLOCK) c.fillStyle='#DAA520'; 
+            else if((t===T.HIDDEN||t===T.TROLL_HIDDEN||t===T.HIDDEN_TRIGGER||t===T.SKY_SPAWNER||t===T.BG_FALL_TRIGGER) && !hideSpoilers) {
+                // Reveal Hidden Blocks (Semi-transparent)
+                c.fillStyle = 'rgba(255, 255, 255, 0.5)'; c.fillRect(x*TILE_SIZE*scale, y*TILE_SIZE*scale, drawSize, drawSize); c.strokeRect(x*TILE_SIZE*scale, y*TILE_SIZE*scale, drawSize, drawSize); continue;
+            }
+            else if(t===T.INVISIBLE_DEATH && !hideSpoilers) {
+                // Reveal Invisible Death
+                c.fillStyle = 'rgba(255, 0, 0, 0.5)'; c.fillRect(x*TILE_SIZE*scale, y*TILE_SIZE*scale, drawSize, drawSize); continue;
+            }
             else continue;
             c.fillRect(x*TILE_SIZE*scale, y*TILE_SIZE*scale, drawSize, drawSize);
+        } else if (!hideSpoilers && (t===T.HIDDEN||t===T.TROLL_HIDDEN||t===T.HIDDEN_TRIGGER||t===T.SKY_SPAWNER||t===T.BG_FALL_TRIGGER)) {
+             // Catch cases where t was not re-assigned but is hidden
+             c.fillStyle = 'rgba(255, 255, 255, 0.5)'; c.fillRect(x*TILE_SIZE*scale, y*TILE_SIZE*scale, drawSize, drawSize); c.strokeRect(x*TILE_SIZE*scale, y*TILE_SIZE*scale, drawSize, drawSize);
         }
     }
     if(trailData) {

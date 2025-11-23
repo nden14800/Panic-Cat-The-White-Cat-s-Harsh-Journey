@@ -185,7 +185,7 @@
         <!-- Main Menu -->
         <div id="menu-panel" class="game-panel active">
             <h1>パニックキャット</h1>
-            <h2>白い猫の過酷な旅</h2>
+            <h2 class="text-danger fw-bold">〜理不尽な罠と1000の絶望〜</h2>
             
             <div class="d-flex justify-content-center gap-2 mb-3 flex-wrap">
                 <button class="btn btn-info btn-sm fw-bold px-4" onclick="showHelp()"><i class="bi bi-question-circle"></i> 遊び方</button>
@@ -312,10 +312,16 @@
 
         <!-- Help Modal -->
         <div id="help-panel" class="game-panel">
-            <h3 class="text-info fw-bold">遊び方</h3>
+            <h3 class="text-info fw-bold">遊び方 (要注意)</h3>
             <div class="text-start bg-dark p-3 rounded border border-secondary mb-3 small mx-auto">
-                <p class="lead mb-3">ゴールポールの旗を上げればクリア！</p>
-                <div class="row">
+                <p class="lead mb-3 text-danger fw-bold">※このゲームは極めて理不尽です。</p>
+                <ul class="text-light">
+                    <li>見た目通りの床とは限りません。</li>
+                    <li>アイテムが助けてくれるとは限りません。</li>
+                    <li>何もないところからブロックが現れます。</li>
+                    <li>ゴールフラグですら、あなたを殺しに来るかもしれません。</li>
+                </ul>
+                <div class="row mt-3">
                     <div class="col-md-6 mb-3">
                         <h5 class="text-warning border-bottom border-secondary pb-1">PC操作</h5>
                         <ul class="ps-3 mb-0">
@@ -433,23 +439,35 @@ let gameData = { lives: 10, coins: 0, maxReachedLevel: 1, history: [], bestTimes
 let isFirstBoot = true; 
 
 // Load Save
-const saved = localStorage.getItem('panicCat_save_v11');
+const saved = localStorage.getItem('panicCat_save_v12_troll');
 if(saved) { 
     try { 
         gameData = { ...gameData, ...JSON.parse(saved) }; 
         isFirstBoot = false;
     } catch(e){} 
 }
-function saveData() { localStorage.setItem('panicCat_save_v11', JSON.stringify(gameData)); }
+function saveData() { localStorage.setItem('panicCat_save_v12_troll', JSON.stringify(gameData)); }
 
-// Constants
+// Constants & Tile Definitions (Extended for maximum troll)
 const GRAVITY = 0.6; const FRICTION = 0.82; const JUMP_FORCE = 12.5; 
 const MOVE_SPEED = 0.8; const MAX_SPEED = 6.0;
 const RUN_ACCEL = 1.2; const RUN_MAX_SPEED = 9.0;
 const CROUCH_FRICTION = 0.92; const HIP_DROP_SPEED = 15;
 
-const T = { EMPTY:0, GROUND:1, BLOCK:2, HARD_BLOCK:3, SPIKE:4, POLE:5, Q_BLOCK:6, HIDDEN:7, FALLING:8, FAKE:9, INVISIBLE_DEATH:10, USED_BLOCK:11, FACE_BLOCK:12, CHECKPOINT:13, CHECKPOINT_ON:14, COIN:15, FAKE_SPIKE:16, CEILING_SPIKE:17, HIDDEN_TRIGGER:18, COIN_BLOCK:19, MULTI_COIN_BLOCK:20 };
-const I = { MUSHROOM:1, POISON:2, FAKE:3 };
+const T = { 
+    EMPTY:0, GROUND:1, BLOCK:2, HARD_BLOCK:3, SPIKE:4, POLE:5, 
+    Q_BLOCK:6, HIDDEN:7, FALLING:8, FAKE:9, INVISIBLE_DEATH:10, 
+    USED_BLOCK:11, FACE_BLOCK:12, CHECKPOINT:13, CHECKPOINT_ON:14, 
+    COIN:15, FAKE_SPIKE:16, CEILING_SPIKE:17, HIDDEN_TRIGGER:18, 
+    COIN_BLOCK:19, MULTI_COIN_BLOCK:20,
+    TROLL_HIDDEN: 21, // Looks empty, hits solid, becomes face
+    FALL_TRAP: 22,    // Looks exactly like ground, falls instantly
+    DELAY_FALL: 23,   // Looks like ground, falls after short delay
+    FAKE_GOAL: 24,    // Looks like a pole, but... (Implemented via logic)
+    SKY_SPAWNER: 25   // Invisible, spawns falling debris
+};
+
+const I = { MUSHROOM:1, POISON:2, FAKE:3, ENEMY_SPAWN:4 }; // ENEMY_SPAWN pops an enemy out of block
 
 // Runtime
 let gameState = 'MENU';
@@ -461,11 +479,13 @@ let levelStartCoins = 0; let levelStartLives = 0;
 let startTime=0, elapsedTime=0, isTimerRunning=false;
 let frameCount = 0;
 let trail = [];
+let skyDebrisTimer = 0;
+let flagMoved = false;
 
 // Objects
-let levelMap = []; let items = []; let particles = []; let enemies = [];
+let levelMap = []; let items = []; let particles = []; let enemies = []; let debris = [];
 let activeBlocks = {}; 
-let goalPole = { x:0, y:0, h:0, flagY:0 };
+let goalPole = { x:0, y:0, h:0, flagY:0, isFake:false, runaway:false };
 let player = { x:0, y:0, w:30, h:24, crouchH:14, vx:0, vy:0, grounded:false, facingRight:true, dead:false, isBig:false, invincible:0, crouching:false, jumpCount:0, isHipDropping:false, respawnX:100, respawnY:200 };
 let keys = { left:false, right:false, up:false, down:false, jump:false, jumpPressed:false, run:false, hip:false, hipPressed:false };
 
@@ -742,10 +762,6 @@ function startGame(lv) {
     }
     levelStartCoins=gameData.coins; levelStartLives=gameData.lives; 
     player.respawnX=100; player.respawnY=200; 
-    // allowNegativeLives is already handled above or kept from previous state if needed, 
-    // but typically we reset it unless explicitly continued. 
-    // However, if user confirmed, keep it. 
-    // Since global var allowNegativeLives is set above, we are good.
     
     resetLevel(true); 
     gameState='PLAYING'; 
@@ -764,7 +780,7 @@ function retryGame() {
 
 function resetAllData() {
     if(confirm("本当に全てのデータを初期化しますか？")) {
-        localStorage.removeItem('panicCat_save_v11');
+        localStorage.removeItem('panicCat_save_v12_troll');
         location.reload();
     }
 }
@@ -789,9 +805,9 @@ function togglePause() {
 }
 function canControl() { return gameState === 'PLAYING' && !player.dead; }
 
-/** GAME LOGIC **/
+/** GAME LOGIC & LEVEL GENERATION (THE TROLL UPDATE) **/
 function resetLevel(fullReset) {
-    enemies = [];
+    enemies = []; debris = [];
     generateWorld(currentLevel);
     player.x=player.respawnX; player.y=player.respawnY; player.vx=0; player.vy=0; 
     player.dead=false; player.grounded=false; player.isBig=false; player.invincible=0; 
@@ -799,66 +815,175 @@ function resetLevel(fullReset) {
     items=[]; particles=[]; 
     keys.jumpPressed=false; keys.hipPressed=false; 
     keys.left=false; keys.right=false; keys.jump=false; keys.down=false;
-    goalPole.flagY=0;
+    goalPole.flagY=0; goalPole.runaway = false;
+    skyDebrisTimer = 0; flagMoved = false;
 }
 
 function generateWorld(lv) {
-    currentSeed = lv * 777; document.getElementById('menu-seed-val').innerText = currentSeed;
+    currentSeed = lv * 12345; 
+    document.getElementById('menu-seed-val').innerText = currentSeed;
     let seed = currentSeed; const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
     const randInt = (min, max) => Math.floor(rand() * (max - min + 1)) + min;
-    const width = 200 + (lv * 5); const height = 15; levelMap = Array(height).fill().map(() => Array(width).fill(T.EMPTY)); const gY = 11;
+    
+    // Difficulty scaling (0.0 to 1.0) roughly hits max at level 500
+    const difficulty = Math.min(1, (lv - 1) / 500);
+    
+    const width = 200 + (lv * 10); 
+    const height = 15; 
+    const gY = 11;
+    
+    levelMap = Array(height).fill().map(() => Array(width).fill(T.EMPTY));
     activeBlocks = {}; 
-    
-    // 難易度係数
-    const difficulty = Math.min(1, (lv - 1) / 999);
 
-    for(let x=0; x<15; x++) for(let y=gY; y<height; y++) levelMap[y][x] = T.GROUND;
-    let cx = 15; const midPoint = Math.floor(width/2); let checkPointSet = false;
+    // Basic Ground with Holes
+    let cx = 0;
+    let justMadeHole = false;
     
-    while(cx < width - 20) {
-        if(!checkPointSet && cx >= midPoint) { for(let k=0; k<6; k++) for(let y=gY; y<height; y++) levelMap[y][cx+k] = T.GROUND; levelMap[gY-1][cx+3] = T.CHECKPOINT; checkPointSet = true; cx += 6; continue; }
-        const pat = randInt(0, 9); const len = randInt(8, 12);
-        
-        if(pat !== 1 && pat !== 7) { 
-            let consecutiveTraps = 0;
-            for(let x=0; x<len; x++) { 
-                let t = T.GROUND; 
-                if(rand() < 0.05 + (0.2 * difficulty)) t = T.FALLING; 
-                else if (rand() < 0.02 + (0.15 * difficulty)) t = T.FAKE; 
+    while(cx < width) {
+        // Safe zone at start and end
+        if (cx < 15 || cx > width - 20) {
+            for(let y=gY; y<height; y++) levelMap[y][cx] = T.GROUND;
+            cx++;
+            continue;
+        }
+
+        // Pit probability increases with difficulty
+        let pitChance = 0.1 + (difficulty * 0.2);
+        if (!justMadeHole && rand() < pitChance) {
+            // Make a pit
+            let holeLen = randInt(2, 3 + Math.floor(difficulty * 2));
+            if (holeLen > 5) holeLen = 5; // Max jumpable
+            
+            // TROLL: Add hidden block over the pit?
+            if (rand() < 0.3 + (difficulty * 0.5)) {
+                // Calculate "perfect jump" interrupt position
+                let mid = Math.floor(holeLen / 2);
+                // Place invisible block at max jump height approx
+                levelMap[gY - 4][cx + mid] = T.TROLL_HIDDEN;
+            }
+            
+            // TROLL: Invisible death floor at bottom?
+            if (difficulty > 0.5 && rand() < 0.3) {
+                 for(let k=0; k<holeLen; k++) levelMap[height-1][cx+k] = T.INVISIBLE_DEATH;
+            }
+
+            cx += holeLen;
+            justMadeHole = true;
+        } else {
+            // Solid Ground
+            let len = randInt(2, 6);
+            for(let k=0; k<len; k++) {
+                // TROLL: Fall Trap
+                let tile = T.GROUND;
+                if (rand() < 0.05 + (difficulty * 0.25)) {
+                    tile = (rand() < 0.5) ? T.FALL_TRAP : T.DELAY_FALL;
+                }
                 
-                if (t !== T.GROUND) consecutiveTraps++;
-                else consecutiveTraps = 0;
-                if (consecutiveTraps > 3) { t = T.GROUND; consecutiveTraps = 0; }
-
-                levelMap[gY][cx+x] = t; 
-                // 本物の地面の時だけ下を埋める
-                if (t === T.GROUND) {
-                    for(let y=gY+1; y<height; y++) levelMap[y][cx+x] = T.GROUND; 
+                levelMap[gY][cx+k] = tile;
+                // Fill below only if real ground
+                if (tile === T.GROUND) {
+                    for(let y=gY+1; y<height; y++) levelMap[y][cx+k] = T.GROUND;
                 }
 
-                if(rand() < 0.3) levelMap[gY-4][cx+x] = T.COIN; 
-                if(t === T.GROUND && rand() < 0.05 + (0.15 * difficulty) && x > 2 && x < len - 2) {
-                    spawnEnemy((cx+x)*TILE_SIZE, (gY-1)*TILE_SIZE);
+                // TROLL: Spike hidden in ground (Fake Spike is safe, but we want Unsafe Ground)
+                // Reuse CEILING_SPIKE logic for ground spikes? Let's stick to standard objects
+                if (tile === T.GROUND && rand() < 0.02 + (difficulty * 0.1)) {
+                    levelMap[gY-1][cx+k] = T.SPIKE; // Visible spike
+                    if(rand() < 0.5) levelMap[gY-1][cx+k] = T.FAKE_SPIKE; // Fake visible spike (safe)
                 }
-            } 
+                
+                // TROLL: Sky Spawner Trigger
+                if (difficulty > 0.1 && rand() < 0.05 + (difficulty * 0.15)) {
+                    levelMap[gY-5][cx+k] = T.SKY_SPAWNER;
+                }
+            }
+            cx += len;
+            justMadeHole = false;
         }
-        switch(pat) {
-            case 0: if(rand()<0.5) { const bx = cx + randInt(3, len-3); levelMap[gY-4][bx] = T.Q_BLOCK; levelMap[gY-4][bx-1] = T.HIDDEN; levelMap[gY-4][bx+1] = T.HIDDEN; if(levelMap[gY][bx] !== T.FAKE) levelMap[gY-1][bx] = T.SPIKE; } break;
-            case 1: levelMap[gY-2][cx] = T.BLOCK; levelMap[gY-2][cx+1] = T.BLOCK; levelMap[gY-3][cx+Math.floor(len/2)] = T.FALLING; levelMap[gY-2][cx+len-1] = T.BLOCK; if(rand()<0.3) levelMap[gY-5][cx+Math.floor(len/2)] = T.HIDDEN; levelMap[gY-4][cx+Math.floor(len/2)] = T.COIN; break;
-            case 2: for(let i=0; i<4; i++) levelMap[gY-1-i][cx+2+i] = T.HARD_BLOCK; if(rand()<0.5) levelMap[gY-4][cx+6] = T.HIDDEN; break;
-            case 3: for(let y=0; y<3; y++) levelMap[gY-1-y][cx+3] = T.HARD_BLOCK; levelMap[gY-1][cx+4] = T.FAKE_SPIKE; break;
-            case 4: for(let x=1; x<len-1; x++) { levelMap[gY-4][cx+x] = T.BLOCK; if(rand()<0.3) levelMap[gY-5][cx+x] = T.COIN; } if(rand()<0.4) levelMap[gY-5][cx+3] = T.SPIKE; break;
-            case 5: for(let x=1; x<len-1; x+=2) levelMap[gY-1][cx+x] = T.SPIKE; levelMap[gY-4][cx+3] = T.BLOCK; levelMap[gY-4][cx+5] = T.BLOCK; levelMap[gY-4][cx+4] = T.HIDDEN; break;
-            case 6: levelMap[gY-4][cx+4] = T.CEILING_SPIKE; levelMap[gY-4][cx+5] = T.CEILING_SPIKE; break;
-            case 7: for(let x=2; x<len-2; x++) { levelMap[gY][cx+x] = T.EMPTY; levelMap[gY+1][cx+x] = T.GROUND; } levelMap[gY-3][cx+3] = T.HIDDEN_TRIGGER; levelMap[gY-3][cx+4] = T.HIDDEN_TRIGGER; levelMap[gY-3][cx+5] = T.HIDDEN_TRIGGER; levelMap[gY+1][cx+4] = T.COIN; break;
-            case 8: if(rand()<0.5) levelMap[gY-4][cx+3] = T.COIN_BLOCK; else levelMap[gY-4][cx+3] = T.MULTI_COIN_BLOCK; break;
-        }
-        cx += len;
     }
-    for(let x=0; x<20; x++) for(let y=gY; y<height; y++) levelMap[y][cx+x] = T.GROUND;
-    levelMap[gY-2][cx+8] = T.HIDDEN; levelMap[gY-2][cx+9] = T.HIDDEN;
-    goalPole = { x: (cx+14)*TILE_SIZE + 15, y: (gY-8)*TILE_SIZE, h: 8*TILE_SIZE, flagY: 0 }; levelMap[gY-1][cx+14] = T.POLE; 
-    if(player.respawnX > midPoint * TILE_SIZE) { for(let y=0; y<height; y++) for(let x=0; x<width; x++) if(levelMap[y][x]===T.CHECKPOINT) levelMap[y][x]=T.CHECKPOINT_ON; }
+
+    // Object Placement & Special Patterns
+    cx = 15;
+    while (cx < width - 20) {
+        if (levelMap[gY][cx] === T.EMPTY) { cx++; continue; } // Skip pits
+        
+        const pat = randInt(0, 12);
+        
+        // Checkpoint
+        if (cx > width/2 && !levelMap.flat().includes(T.CHECKPOINT)) {
+             levelMap[gY-1][cx] = T.CHECKPOINT;
+             // TROLL: Falling floor under checkpoint
+             if (difficulty > 0.3 && rand() < 0.4) levelMap[gY][cx] = T.DELAY_FALL;
+        }
+
+        // Enemy
+        if (rand() < 0.1 + (difficulty * 0.3)) {
+             spawnEnemy((cx)*TILE_SIZE, (gY-1)*TILE_SIZE);
+        }
+
+        if (pat === 0) { // The "Safe" Path
+            levelMap[gY-3][cx] = T.BLOCK; levelMap[gY-3][cx+1] = T.BLOCK; levelMap[gY-3][cx+2] = T.BLOCK;
+            if (rand() < 0.5) levelMap[gY-3][cx+1] = T.FALLING;
+            // TROLL: Upper path bait
+            levelMap[gY-6][cx+1] = T.COIN;
+            levelMap[gY-7][cx+1] = T.TROLL_HIDDEN; // Hit head trying to get coin
+        }
+        else if (pat === 1) { // Pipe-like structure
+            levelMap[gY-1][cx] = T.HARD_BLOCK; levelMap[gY-2][cx] = T.HARD_BLOCK;
+            // TROLL: Enemy in block?
+            if (difficulty > 0.2 && rand() < 0.4) {
+                // Enemy spawn logic is manual, but let's put a hidden block next to it
+                levelMap[gY-1][cx-1] = T.TROLL_HIDDEN;
+            }
+        }
+        else if (pat === 2) { // Question Block Trap
+            levelMap[gY-4][cx] = T.Q_BLOCK;
+            // TROLL: Spikes appear on top when hit? Or mostly Poison.
+        }
+        else if (pat === 3) { // Staircase to hell
+            for(let i=0; i<4; i++) {
+                let tx = cx+i; let ty = gY-1-i;
+                if (tx < width) {
+                    levelMap[ty][tx] = T.BLOCK;
+                    if (i===3) levelMap[ty][tx] = T.FALL_TRAP; // Top step falls
+                }
+            }
+        }
+        else if (pat === 4) { // The "Ceiling"
+            levelMap[gY-4][cx] = T.CEILING_SPIKE;
+            if (rand()<0.5) levelMap[gY][cx] = T.INVISIBLE_DEATH; // Floor looks safe but kills
+        }
+        else if (pat === 5) { // Invisible bridge
+            if (levelMap[gY][cx+1] === T.EMPTY && levelMap[gY][cx+2] === T.EMPTY) {
+                // Gap area
+                if (rand() < 0.5) {
+                    levelMap[gY][cx+1] = T.TROLL_HIDDEN; // Invisible bridge
+                    levelMap[gY][cx+2] = T.TROLL_HIDDEN;
+                }
+            }
+        }
+        
+        cx += 4;
+    }
+
+    // Goal Area
+    goalPole = { x: (width-10)*TILE_SIZE + 15, y: (gY-8)*TILE_SIZE, h: 8*TILE_SIZE, flagY: 0, isFake: false, runaway: false };
+    levelMap[gY-1][width-10] = T.POLE;
+    
+    // TROLL: Moving Goal
+    if (difficulty > 0.2 && rand() < (0.2 + difficulty * 0.3)) {
+        goalPole.runaway = true;
+    }
+    // TROLL: Invisible wall before goal
+    if (difficulty > 0.4 && rand() < 0.3) {
+        levelMap[gY-1][width-12] = T.TROLL_HIDDEN;
+        levelMap[gY-2][width-12] = T.TROLL_HIDDEN;
+        levelMap[gY-3][width-12] = T.TROLL_HIDDEN;
+    }
+
+    if(player.respawnX > 500) { 
+        for(let y=0; y<height; y++) for(let x=0; x<width; x++) if(levelMap[y][x]===T.CHECKPOINT) levelMap[y][x]=T.CHECKPOINT_ON; 
+    }
 }
 
 function gameLoop() {
@@ -875,15 +1000,18 @@ function update() {
     if(gameState !== 'PLAYING') return;
     if(player.dead) return;
 
+    // Controls
     if((keys.down || keys.hip) && !player.grounded && !player.crouching && keys.hipPressed) { 
         player.vy = HIP_DROP_SPEED; 
         player.isHipDropping = true; 
         keys.hipPressed = false; 
     }
 
+    // Flight Cheat
     if(activeCheats.flight && (keys.jump || keys.up)) { player.vy = -5; player.grounded = false; }
     else if(activeCheats.flight && keys.down) player.vy = 5;
     else {
+        // Physics
         if(keys.jumpPressed) {
             if(player.grounded) { 
                 player.vy = -JUMP_FORCE; 
@@ -907,12 +1035,18 @@ function update() {
     if(keys.left) { player.vx -= acc; player.facingRight = false; }
     if(keys.right) { player.vx += acc; player.facingRight = true; }
 
-    if(keys.down && player.grounded && !activeCheats.flight) { player.crouching = true; player.vx *= CROUCH_FRICTION; }
-    else { player.crouching = false; player.vx *= FRICTION; }
+    // Friction
+    let fric = player.crouching ? CROUCH_FRICTION : FRICTION;
+    // TROLL: Ice physics at high levels?
+    if (currentLevel > 100) fric = 0.96; // Slippery
+    
+    if(keys.down && player.grounded && !activeCheats.flight) { player.crouching = true; player.vx *= fric; }
+    else { player.crouching = false; player.vx *= fric; }
 
     if(player.vx > cap) player.vx = cap; if(player.vx < -cap) player.vx = -cap;
     if(Math.abs(player.vx) < 0.1) player.vx = 0;
 
+    // Movement & Collision Steps
     let steps = Math.ceil(Math.max(Math.abs(player.vx), Math.abs(player.vy)) / (TILE_SIZE * 0.25));
     let svx = player.vx/steps; let svy = player.vy/steps;
     
@@ -921,19 +1055,48 @@ function update() {
         player.y += svy; checkCollisionY(player); 
     }
 
-    if(player.x+player.w > goalPole.x && player.x < goalPole.x+10 && player.y < goalPole.y+goalPole.h && player.y+player.h > goalPole.y) startGoalAnim();
+    // TROLL: Runaway Flag
+    if(goalPole.runaway && !flagMoved && Math.abs(player.x - goalPole.x) < 150) {
+        goalPole.x += 80; // Jump away
+        goalPole.y -= 40;
+        // Check valid location
+        flagMoved = true;
+    }
+
+    // Goal Check
+    if(player.x+player.w > goalPole.x && player.x < goalPole.x+10 && player.y < goalPole.y+goalPole.h && player.y+player.h > goalPole.y) {
+        startGoalAnim();
+    }
+    
     if(player.y > GAME_HEIGHT + 100) die();
     if(player.invincible > 0) player.invincible--;
     
     updateItems();
     updateEnemies();
+    updateDebris();
     
     if(frameCount%5===0 && !player.dead) trail.push({x: player.x+player.w/2, y: player.y+player.h/2});
     frameCount++;
 }
 
 function spawnEnemy(x, y) {
-    enemies.push({ x: x, y: y, w: 30, h: 30, vx: -1.5, vy: 0, dead: false });
+    // Difficulty scales speed
+    let diff = Math.min(1, currentLevel/500);
+    let spd = -1.5 - (diff * 2.0);
+    enemies.push({ x: x, y: y, w: 30, h: 30, vx: spd, vy: 0, dead: false });
+}
+
+function spawnDebris(x) {
+    debris.push({ x: x, y: -40, w: 30, h: 30, vx: 0, vy: 2, active: true });
+}
+
+function updateDebris() {
+    for(let i=debris.length-1; i>=0; i--) {
+        let d = debris[i];
+        d.vy += 0.2; d.y += d.vy;
+        if(d.y > GAME_HEIGHT) { debris.splice(i, 1); continue; }
+        if(intersect(player, d)) { hitDamage(); debris.splice(i, 1); }
+    }
 }
 
 function updateEnemies() {
@@ -941,6 +1104,8 @@ function updateEnemies() {
         let e = enemies[i];
         if (e.dead) { enemies.splice(i, 1); continue; }
         e.vy += GRAVITY; e.x += e.vx;
+        
+        // Wall collision turn
         let startX = Math.floor(e.x/TILE_SIZE), endX = Math.floor((e.x+e.w-0.1)/TILE_SIZE);
         let startY = Math.floor(e.y/TILE_SIZE), endY = Math.floor((e.y+e.h-0.1)/TILE_SIZE);
         let colX = false;
@@ -963,9 +1128,14 @@ function updateEnemies() {
     }
 }
 
-function performHipDrop() { if(!player.grounded) { player.vy = HIP_DROP_SPEED; player.isHipDropping = true; } }
 function startGoalAnim() { gameState = 'GOAL_ANIM'; player.vx = 0; player.vy = 0; player.x = goalPole.x - 10; isTimerRunning = false; }
-function updateGoalAnim() { if(player.y < goalPole.y + goalPole.h - player.h) player.y += 4; else { if(goalPole.flagY < goalPole.h - 40) goalPole.flagY += 4; else if(gameState !== 'CLEARED') levelClear(); } }
+function updateGoalAnim() { 
+    if(player.y < goalPole.y + goalPole.h - player.h) player.y += 4; 
+    else { 
+        if(goalPole.flagY < goalPole.h - 40) goalPole.flagY += 4; 
+        else if(gameState !== 'CLEARED') levelClear(); 
+    } 
+}
 
 function checkCollisionY(obj) {
     const offsetY = obj.crouching ? (obj.h - obj.crouchH) : 0;
@@ -984,7 +1154,14 @@ function checkCollisionY(obj) {
                 if(t===T.SPIKE || t===T.CEILING_SPIKE) { if(intersect(obj, {x:x*TILE_SIZE+10, y:y*TILE_SIZE+10, w:20, h:20})) hitDamage(); }
                 if(t===T.INVISIBLE_DEATH) die();
                 if(obj.vy<0 && obj.y<(y+1)*TILE_SIZE && obj.y>y*TILE_SIZE) handleHeadBump(x,y,t);
-                if(t===T.HIDDEN_TRIGGER) levelMap[y][x] = T.HARD_BLOCK;
+                if(t===T.HIDDEN_TRIGGER || t===T.SKY_SPAWNER) {
+                    if (t===T.SKY_SPAWNER) {
+                        spawnDebris(player.x);
+                        levelMap[y][x] = T.EMPTY; // Trigger once
+                    } else {
+                        levelMap[y][x] = T.HARD_BLOCK;
+                    }
+                }
             }
             if (isSolid(t)) {
                 if (obj.vy >= 0) {
@@ -993,7 +1170,20 @@ function checkCollisionY(obj) {
                         if((t===T.Q_BLOCK || t===T.COIN_BLOCK || t===T.MULTI_COIN_BLOCK || t===T.BLOCK) && player.isHipDropping) {
                              handleHeadBump(x,y,t); player.vy = -6;
                         }
-                        if(t===T.FALLING && obj===player) setTimeout(()=>{ if(levelMap[y][x]===T.FALLING){levelMap[y][x]=T.EMPTY; spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#aaa');} },150);
+                        // Falling Traps
+                        if((t===T.FALLING || t===T.FALL_TRAP) && obj===player) {
+                             setTimeout(()=>{ 
+                                 if(levelMap[y][x]===T.FALLING || levelMap[y][x]===T.FALL_TRAP){
+                                     levelMap[y][x]=T.EMPTY; spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#aaa');
+                                 } 
+                             }, t===T.FALL_TRAP ? 50 : 150);
+                        }
+                        if(t===T.DELAY_FALL && obj===player) {
+                            setTimeout(()=>{ 
+                                if(levelMap[y][x]===T.DELAY_FALL){ levelMap[y][x]=T.FALLING; } // Turn into regular falling (quick)
+                            }, 400);
+                        }
+
                         player.isHipDropping = false;
                     }
                 } else if (obj.vy < 0) {
@@ -1017,7 +1207,11 @@ function checkCollisionX(obj) {
             if(t===T.COIN && obj===player) { levelMap[y][x] = T.EMPTY; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#FFD700'); }
             if(obj===player && t===T.CHECKPOINT) { levelMap[y][x] = T.CHECKPOINT_ON; player.respawnX = x*TILE_SIZE; player.respawnY = y*TILE_SIZE; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE, '#00FF00'); }
             if(t===T.INVISIBLE_DEATH && obj===player) die();
-            if(t===T.HIDDEN_TRIGGER) levelMap[y][x] = T.HARD_BLOCK;
+            if(t===T.HIDDEN_TRIGGER || t===T.SKY_SPAWNER) {
+                 if(t===T.SKY_SPAWNER) { spawnDebris(player.x); levelMap[y][x] = T.EMPTY; }
+                 else levelMap[y][x] = T.HARD_BLOCK;
+            }
+            
             if (isSolid(t)) {
                 if (obj.vx > 0) { obj.x = x * TILE_SIZE - obj.w - 0.01; } else if (obj.vx < 0) { obj.x = (x + 1) * TILE_SIZE + 0.01; }
                 obj.vx = 0;
@@ -1028,8 +1222,14 @@ function checkCollisionX(obj) {
 
 function handleHeadBump(x, y, t) {
     if(t===T.Q_BLOCK) {
-        levelMap[y][x] = T.USED_BLOCK; const rnd = Math.random();
-        let item = (rnd<0.6)?I.POISON:(rnd<0.8?I.FAKE:I.MUSHROOM); spawnItem(x*TILE_SIZE, y*TILE_SIZE-30, item); 
+        levelMap[y][x] = T.USED_BLOCK; 
+        const rnd = Math.random();
+        // TROLL: High chance of poison or fake at high levels
+        let item = I.MUSHROOM;
+        if (currentLevel > 5) item = (rnd<0.4)?I.POISON:(rnd<0.7?I.FAKE:I.MUSHROOM);
+        if (currentLevel > 50 && rnd < 0.2) item = I.ENEMY_SPAWN;
+
+        spawnItem(x*TILE_SIZE, y*TILE_SIZE-30, item); 
     } else if(t===T.COIN_BLOCK) {
         levelMap[y][x] = T.USED_BLOCK; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE-20, '#FFD700');
     } else if(t===T.MULTI_COIN_BLOCK) {
@@ -1038,19 +1238,51 @@ function handleHeadBump(x, y, t) {
         activeBlocks[key]--;
         if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE-20, '#FFD700');
         if(activeBlocks[key] <= 0) levelMap[y][x] = T.USED_BLOCK;
-    } else if(t===T.HIDDEN || t===T.HIDDEN_TRIGGER) {
-        levelMap[y][x] = t===T.HIDDEN_TRIGGER ? T.HARD_BLOCK : T.FACE_BLOCK; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE+40, '#fff');
+    } else if(t===T.HIDDEN || t===T.HIDDEN_TRIGGER || t===T.TROLL_HIDDEN) {
+        // Revealed block
+        levelMap[y][x] = (t===T.HIDDEN_TRIGGER || t===T.HIDDEN) ? T.FACE_BLOCK : T.FACE_BLOCK; 
+        spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE+40, '#fff');
         if(player.vy < 0) { player.vy = 0; player.y = (y+1)*TILE_SIZE; }
     } else if(t===T.BLOCK && player.isBig) {
         levelMap[y][x] = T.EMPTY; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE+20, '#A0522D'); if(player.vy<0) player.vy = 0;
     }
 }
 
-function isSolid(t) { return (t >= 1 && t <= 3) || (t >= 6 && t <= 12 && t !== T.FAKE) || t===T.CEILING_SPIKE || t===T.HIDDEN_TRIGGER || t===T.COIN_BLOCK || t===T.MULTI_COIN_BLOCK; }
+function isSolid(t) { 
+    return (t >= 1 && t <= 3) || (t >= 6 && t <= 12 && t !== T.FAKE) || 
+    t===T.CEILING_SPIKE || t===T.HIDDEN_TRIGGER || t===T.COIN_BLOCK || t===T.MULTI_COIN_BLOCK ||
+    t===T.FALL_TRAP || t===T.DELAY_FALL;
+}
 function getTile(x, y) { if(y<0||y>=levelMap.length||x<0||x>=levelMap[0].length) return T.EMPTY; return levelMap[y][x]; }
 function intersect(a, b) { return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
-function spawnItem(x, y, type) { items.push({x:x, y:y, w:30, h:30, vx:2, vy:-5, type:type, active:false}); setTimeout(()=>{ if(items.length>0) items[items.length-1].active=true; },300); }
-function updateItems() { for(let i=items.length-1; i>=0; i--) { let it = items[i]; it.vy += GRAVITY; it.x += it.vx; checkCollisionX(it); it.y += it.vy; checkCollisionY(it); if(it.vx===0) it.vx=(Math.random()>0.5?2:-2); if(it.active && intersect(player, it)) { if(it.type===I.MUSHROOM) { if(!player.isBig){player.isBig=true; player.y-=10; spawnParticles(player.x,player.y,'#ff0000');} } else if(it.type===I.POISON) die(); else if(it.type===I.FAKE) spawnParticles(player.x,player.y,'#888'); items.splice(i,1); } else if(it.y>GAME_HEIGHT+50) items.splice(i,1); } }
+
+function spawnItem(x, y, type) { 
+    if (type === I.ENEMY_SPAWN) {
+        spawnEnemy(x, y);
+        return;
+    }
+    items.push({x:x, y:y, w:30, h:30, vx:2, vy:-5, type:type, active:false}); 
+    setTimeout(()=>{ if(items.length>0) items[items.length-1].active=true; },300); 
+}
+
+function updateItems() { 
+    for(let i=items.length-1; i>=0; i--) { 
+        let it = items[i]; it.vy += GRAVITY; it.x += it.vx; 
+        checkCollisionX(it); it.y += it.vy; checkCollisionY(it); 
+        if(it.vx===0) it.vx=(Math.random()>0.5?2:-2); 
+        if(it.active && intersect(player, it)) { 
+            if(it.type===I.MUSHROOM) { 
+                if(!player.isBig){player.isBig=true; player.y-=10; spawnParticles(player.x,player.y,'#ff0000');} 
+            } else if(it.type===I.POISON) {
+                die(); 
+            } else if(it.type===I.FAKE) {
+                spawnParticles(player.x,player.y,'#888'); // Just disappears
+            } 
+            items.splice(i,1); 
+        } else if(it.y>GAME_HEIGHT+50) items.splice(i,1); 
+    } 
+}
+
 function hitDamage() { if(activeCheats.god || player.invincible>0) return; if(player.isBig){ player.isBig=false; player.invincible=120; player.vy=-5; spawnParticles(player.x,player.y,'#fff'); } else die(); }
 
 function die() { 
@@ -1137,15 +1369,22 @@ function draw() {
     ctx.save(); ctx.translate(-Math.floor(camX), 0);
     const startCol = Math.floor(camX/TILE_SIZE), endCol = startCol + (GAME_WIDTH/TILE_SIZE) + 2;
     for(let y=0; y<levelMap.length; y++) for(let x=startCol; x<=endCol; x++) if(x>=0 && x<levelMap[0].length) drawTile(ctx, x, y, levelMap[y][x]);
+    
+    // Draw Goal
     if(goalPole.x > camX - 50 && goalPole.x < camX + GAME_WIDTH + 50) drawGoalPole(ctx);
+    
     for(let it of items) drawItem(it);
     for(let en of enemies) drawEnemy(en);
+    for(let d of debris) drawDebris(d);
+
     if(!player.dead || frameCount%2===0) { if(player.invincible%4 < 2) drawCat(player); }
+    
     for(let p of particles) { p.x+=p.vx; p.y+=p.vy; p.life--; ctx.fillStyle=p.color; ctx.fillRect(p.x,p.y,6,6); }
     particles = particles.filter(p => p.life > 0);
     ctx.restore();
 }
 function drawGoalPole(c) { c.fillStyle = '#28a745'; c.fillRect(goalPole.x-10, goalPole.y+goalPole.h, 30, 40); c.fillStyle = '#eee'; c.fillRect(goalPole.x, goalPole.y, 10, goalPole.h); c.beginPath(); c.arc(goalPole.x+5, goalPole.y, 10, 0, Math.PI*2); c.fill(); c.fillStyle = '#ff3333'; c.beginPath(); const fy = goalPole.y + goalPole.h - 40 - goalPole.flagY; c.moveTo(goalPole.x+10, fy); c.lineTo(goalPole.x+50, fy+15); c.lineTo(goalPole.x+10, fy+30); c.fill(); }
+
 function drawMiniMap() { drawMapOnCanvas(document.getElementById('minimap-canvas').getContext('2d'), true, trail); }
 function drawResultMap() { drawMapOnCanvas(document.getElementById('result-map-canvas').getContext('2d'), false, trail); }
 function drawMapOnCanvas(c, hideSpoilers, trailData) {
@@ -1153,21 +1392,25 @@ function drawMapOnCanvas(c, hideSpoilers, trailData) {
     c.clearRect(0, 0, cv.width, cv.height);
     const mapW = levelMap[0].length * TILE_SIZE, mapH = levelMap.length * TILE_SIZE;
     let scale = cv.width / mapW; if(mapH * scale > cv.height) scale = cv.height / mapH;
-    
-    // Fix: Ensure minimum visibility for large maps
     const drawSize = Math.max(scale * TILE_SIZE, 0.5);
-    
     const offsetX = (cv.width - mapW*scale) / 2, offsetY = (cv.height - mapH*scale) / 2;
     c.save(); c.translate(offsetX, offsetY);
-    // We scale manually for coordinates but enforce min size for rects
     
     for(let y=0; y<levelMap.length; y++) for(let x=0; x<levelMap[0].length; x++) {
         let t = levelMap[y][x];
-        if(hideSpoilers) { if(t===T.FALLING||t===T.FAKE||t===T.FAKE_SPIKE) t=T.GROUND; if(t===T.HIDDEN||t===T.INVISIBLE_DEATH||t===T.HIDDEN_TRIGGER) t=T.EMPTY; }
+        if(hideSpoilers) { 
+            if(t===T.FAKE||t===T.FAKE_SPIKE||t===T.FALL_TRAP||t===T.DELAY_FALL) t=T.GROUND; 
+            if(t===T.FALLING) t=T.BLOCK; // Spoiler: Show falling block as normal block
+            if(t===T.HIDDEN||t===T.INVISIBLE_DEATH||t===T.HIDDEN_TRIGGER||t===T.TROLL_HIDDEN||t===T.SKY_SPAWNER) t=T.EMPTY; 
+        }
         if(t!==T.EMPTY) {
-            if(t===T.GROUND) c.fillStyle='#654321'; else if(t===T.BLOCK||t===T.HARD_BLOCK) c.fillStyle='#A0522D'; else if(t===T.SPIKE||t===T.CEILING_SPIKE) c.fillStyle='#CCC';
-            else if(t===T.POLE) { c.fillStyle='#eee'; c.fillRect(x*TILE_SIZE*scale+15*scale, y*TILE_SIZE*scale-200*scale, 10*scale, 240*scale); continue; } else if(t===T.CHECKPOINT_ON) c.fillStyle='#0f0'; else if(t===T.CHECKPOINT) c.fillStyle='#ff0'; else if(t===T.COIN) c.fillStyle='#FFD700';
-            else if(t===T.COIN_BLOCK||t===T.MULTI_COIN_BLOCK) c.fillStyle='#DAA520'; else if(t===T.Q_BLOCK) c.fillStyle='#FFD700'; else continue;
+            if(t===T.GROUND||t===T.FALL_TRAP||t===T.DELAY_FALL) c.fillStyle='#654321'; 
+            else if(t===T.BLOCK||t===T.HARD_BLOCK||t===T.FALLING) c.fillStyle='#A0522D'; 
+            else if(t===T.SPIKE||t===T.CEILING_SPIKE) c.fillStyle='#CCC';
+            else if(t===T.POLE) { c.fillStyle='#eee'; c.fillRect(x*TILE_SIZE*scale+15*scale, y*TILE_SIZE*scale-200*scale, 10*scale, 240*scale); continue; } 
+            else if(t===T.CHECKPOINT_ON) c.fillStyle='#0f0'; else if(t===T.CHECKPOINT) c.fillStyle='#ff0'; else if(t===T.COIN) c.fillStyle='#FFD700';
+            else if(t===T.COIN_BLOCK||t===T.MULTI_COIN_BLOCK||t===T.Q_BLOCK) c.fillStyle='#DAA520'; 
+            else continue;
             c.fillRect(x*TILE_SIZE*scale, y*TILE_SIZE*scale, drawSize, drawSize);
         }
     }
@@ -1181,6 +1424,7 @@ function drawMapOnCanvas(c, hideSpoilers, trailData) {
     c.globalAlpha=1.0; c.fillStyle='#FFF'; c.beginPath(); c.arc(player.x*scale+player.w/2*scale, player.y*scale+player.h/2*scale, drawSize, 0, Math.PI*2); c.fill();
     c.restore();
 }
+
 function drawCat(p) {
     ctx.save(); ctx.translate(p.x+p.w/2, p.y+p.h/2);
     if(p.isBig) ctx.scale(1.3, 1.3); if(!p.facingRight) ctx.scale(-1, 1); if(p.crouching) ctx.scale(1.1, 0.6);
@@ -1206,20 +1450,40 @@ function drawEnemy(e) {
     ctx.fillStyle = '#5A2E0E'; const l = Math.sin(frameCount * 0.5) * 5; ctx.beginPath(); ctx.arc(-5 + l, 12, 3.5, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(5 - l, 12, 3.5, 0, Math.PI*2); ctx.fill();
     ctx.restore();
 }
+function drawDebris(d) {
+    ctx.fillStyle = '#555'; ctx.fillRect(d.x, d.y, d.w, d.h);
+    ctx.fillStyle = '#222'; ctx.fillRect(d.x+5, d.y+5, d.w-10, d.h-10);
+    // Scary face
+    ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(d.x+10, d.y+10, 3, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(d.x+20, d.y+10, 3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(d.x+5, d.y+20); ctx.lineTo(d.x+15, d.y+25); ctx.lineTo(d.x+25, d.y+20); ctx.stroke();
+}
+
 function drawTile(c, x, y, t) {
     const px=x*TILE_SIZE, py=y*TILE_SIZE;
-    if(t===T.HIDDEN||t===T.INVISIBLE_DEATH||t===T.HIDDEN_TRIGGER) return;
-    if(t===T.GROUND||t===T.FALLING||t===T.FAKE||t===T.FAKE_SPIKE) { c.fillStyle='#654321'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.fillStyle='#32CD32'; c.fillRect(px,py,TILE_SIZE,10); }
+    if(t===T.HIDDEN||t===T.INVISIBLE_DEATH||t===T.HIDDEN_TRIGGER||t===T.TROLL_HIDDEN||t===T.SKY_SPAWNER) return;
+    
+    // Normal Ground & Traps that look like ground
+    if(t===T.GROUND||t===T.FAKE||t===T.FAKE_SPIKE||t===T.FALL_TRAP||t===T.DELAY_FALL) { 
+        c.fillStyle='#654321'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); 
+        c.fillStyle='#32CD32'; c.fillRect(px,py,TILE_SIZE,10); 
+    }
+
     if(t===T.FAKE_SPIKE) { c.fillStyle='#C0C0C0'; c.beginPath(); c.moveTo(px,py+TILE_SIZE); c.lineTo(px+20,py+5); c.lineTo(px+40,py+TILE_SIZE); c.fill(); }
-    else if(t===T.BLOCK) { c.fillStyle='#A0522D'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.strokeStyle='#5c3a21'; c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); }
+    else if(t===T.BLOCK || t===T.FALLING) { c.fillStyle='#A0522D'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.strokeStyle='#5c3a21'; c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); }
     else if(t===T.HARD_BLOCK) { c.fillStyle='#696969'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); }
     else if(t===T.Q_BLOCK || t===T.COIN_BLOCK) { c.fillStyle=t===T.COIN_BLOCK?'#FFD700':'#FFA500'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.fillStyle='#B8860B'; c.font='bold 24px sans-serif'; c.textAlign='center'; c.fillText(t===T.COIN_BLOCK?'$':'?',px+20,py+30); c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); }
     else if(t===T.MULTI_COIN_BLOCK) { c.fillStyle='#FF69B4'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.fillStyle='#C71585'; c.font='bold 24px sans-serif'; c.textAlign='center'; c.fillText('$',px+20,py+30); c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); }
     else if(t===T.USED_BLOCK) { c.fillStyle='#5c3a21'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); }
     else if(t===T.FACE_BLOCK) { 
-        c.fillStyle='#FFCC99'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); 
-        c.fillStyle='black'; c.beginPath(); c.arc(px+12, py+15, 3, 0, Math.PI*2); c.fill(); c.beginPath(); c.arc(px+28, py+15, 3, 0, Math.PI*2); c.fill();
-        c.beginPath(); c.arc(px+20, py+25, 8, 0, Math.PI, false); c.stroke();
+        c.fillStyle='#DDDDDD'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); 
+        // Troll Face Art
+        c.fillStyle='black'; 
+        c.beginPath(); c.arc(px+10, py+12, 2, 0, Math.PI*2); c.fill(); 
+        c.beginPath(); c.arc(px+30, py+12, 2, 0, Math.PI*2); c.fill();
+        c.beginPath(); c.moveTo(px+5, py+25); c.quadraticCurveTo(px+20, py+35, px+35, py+25); c.stroke();
+        // Wrinkles
+        c.lineWidth = 0.5; c.beginPath(); c.moveTo(px+5, py+10); c.lineTo(px+15, py+8); c.stroke();
+        c.beginPath(); c.moveTo(px+35, py+10); c.lineTo(px+25, py+8); c.stroke();
     }
     else if(t===T.SPIKE) { c.fillStyle='#C0C0C0'; c.beginPath(); c.moveTo(px,py+TILE_SIZE); c.lineTo(px+20,py+5); c.lineTo(px+40,py+TILE_SIZE); c.fill(); }
     else if(t===T.CEILING_SPIKE) { c.fillStyle='#C0C0C0'; c.beginPath(); c.moveTo(px,py); c.lineTo(px+20,py+35); c.lineTo(px+40,py); c.fill(); }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>パニックキャット - 完全修正版</title>
+    <title>パニックキャット - 1000レベルへの挑戦</title>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -38,7 +38,7 @@
             box-shadow: 0 0 40px rgba(0,0,0,0.6);
             background-color: #87CEEB;
             max-width: 100%; max-height: 100%;
-            object-fit: contain; /* アスペクト比を維持して収める */
+            object-fit: contain;
         }
 
         #ui-layer {
@@ -52,10 +52,10 @@
             background: rgba(20, 20, 20, 0.96); padding: 1.5rem;
             border-radius: 1rem; text-align: center; pointer-events: auto;
             border: 3px solid #fff;
-            width: 600px; 
-            max-width: 90%; 
-            max-height: 90vh; /* 画面からはみ出さないように制限 */
-            overflow-y: auto; /* 中身が多い場合はパネル内でスクロール */
+            width: 650px; 
+            max-width: 95%; 
+            max-height: 95vh; 
+            overflow-y: auto;
             display: none;
             box-shadow: 0 20px 50px rgba(0,0,0,0.9); backdrop-filter: blur(5px);
         }
@@ -81,7 +81,7 @@
             pointer-events: auto; z-index: 11; display: none;
         }
         @media (max-width: 768px) {
-             #pause-container { right: 15px; top: 90px; } /* スマホ配置調整 */
+             #pause-container { right: 15px; top: 90px; }
         }
 
         .hud-btn {
@@ -123,7 +123,8 @@
         .new-price { font-family: monospace; font-weight: bold; color: #FFD700; font-size: 1.2rem; }
         .discount-badge { background: #e91e63; color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; margin-left: 5px; vertical-align: text-top; }
         .saved-text { font-size: 0.75rem; color: #00ff88; display: block; text-align: right; }
-        .coin-calc { font-size: 0.8rem; color: #aaa; }
+        .coin-calc { font-size: 0.75rem; color: #aaa; margin-top: 4px; font-family: monospace; }
+        .shop-section-title { background: #444; color: #ddd; padding: 5px; font-size: 0.9rem; font-weight: bold; text-align: left; margin-top: 10px; border-radius: 4px; }
 
         /* Mobile Controls */
         #mobile-controls {
@@ -150,7 +151,6 @@
 
         .cheat-warning-box { border: 2px solid #ff4444; background: rgba(50, 0, 0, 0.8); color: #ffcccc; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-size: 0.9rem; text-align: left; }
         
-        /* 初期残機設定用 */
         #initial-lives-section { display: none; }
     </style>
 </head>
@@ -202,12 +202,12 @@
             <!-- Level Select -->
             <div class="bg-dark p-3 rounded border border-secondary mb-3 mx-auto" style="max-width: 500px;">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="small text-light">レベル選択 (1 - 10,000)</span>
+                    <span class="small text-light">レベル選択 (1 - 1,000)</span>
                     <span class="small text-warning" id="max-reached-display">到達: Lv.1</span>
                 </div>
                 <div class="input-group mb-2">
                     <button class="btn btn-outline-light" onclick="adjustLevelInput(-1)">-</button>
-                    <input type="number" id="level-input" class="form-control text-center fw-bold bg-dark text-light" value="1" min="1" max="10000">
+                    <input type="number" id="level-input" class="form-control text-center fw-bold bg-dark text-light" value="1" min="1" max="1000">
                     <button class="btn btn-outline-light" onclick="adjustLevelInput(1)">+</button>
                 </div>
                 <button class="btn btn-warning w-100 fw-bold" onclick="startGameFromInput()">
@@ -239,7 +239,7 @@
                 <span class="fs-5">所持コイン:</span>
                 <span class="text-warning fw-bold fs-4" id="shop-coins">0</span>
             </div>
-            <div class="mb-3" id="shop-list" style="max-height:300px; overflow-y:auto;"></div>
+            <div class="mb-3 text-start" id="shop-list" style="max-height:450px; overflow-y:auto;"></div>
             <button class="btn btn-light fw-bold w-100" onclick="showMenu()">戻る</button>
         </div>
 
@@ -269,7 +269,7 @@
         <div id="cheat-panel" class="game-panel">
             <h3 class="text-danger fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> チート設定</h3>
             <div class="cheat-warning-box mx-auto">
-                ⚠️ チート機能を使用すると、ゲームの難易度が崩壊します。<br>
+                <i class="bi bi-exclamation-triangle-fill"></i> チート機能を使用すると、ゲームの難易度が崩壊します。<br>
                 ・クリアしても「ベストタイム」は記録されません。<br>
             </div>
             <div class="text-start bg-dark p-3 rounded border border-secondary mb-3 d-grid gap-2 mx-auto" style="grid-template-columns: 1fr 1fr;">
@@ -346,7 +346,7 @@
                     コンティニュー <span class="d-block small fw-normal text-secondary">※ショップで残機を買ってください</span>
                 </button>
                 <button class="btn btn-danger fw-bold py-3" onclick="continueNegative()">
-                    💀 残機マイナスで継続 <span class="d-block small fw-normal text-light">※借金状態でその場復活</span>
+                    <i class="bi bi-skull"></i> 残機マイナスで継続 <span class="d-block small fw-normal text-light">※借金状態でその場復活</span>
                 </button>
                 <button class="btn btn-outline-light" onclick="showMenu()">メニューへ戻る</button>
             </div>
@@ -430,18 +430,17 @@ const TILE_SIZE = 40;
 
 // Data
 let gameData = { lives: 10, coins: 0, maxReachedLevel: 1, history: [], bestTimes: {}, settings: { initialLives: 10 } };
-// 初回起動かどうかの判定フラグ
 let isFirstBoot = true; 
 
 // Load Save
-const saved = localStorage.getItem('panicCat_save_v8');
+const saved = localStorage.getItem('panicCat_save_v11');
 if(saved) { 
     try { 
         gameData = { ...gameData, ...JSON.parse(saved) }; 
         isFirstBoot = false;
     } catch(e){} 
 }
-function saveData() { localStorage.setItem('panicCat_save_v8', JSON.stringify(gameData)); }
+function saveData() { localStorage.setItem('panicCat_save_v11', JSON.stringify(gameData)); }
 
 // Constants
 const GRAVITY = 0.6; const FRICTION = 0.82; const JUMP_FORCE = 12.5; 
@@ -477,19 +476,16 @@ function initSystem() {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
     
-    // 残機設定スライダーの初期化
     const range = document.getElementById('lives-range');
-    range.value = gameData.settings.initialLives; // 保存値があれば反映
+    range.value = gameData.settings.initialLives; 
     document.getElementById('lives-val').innerText = range.value;
     
     range.addEventListener('input', e => {
         const val = parseInt(e.target.value);
         gameData.settings.initialLives = val;
         document.getElementById('lives-val').innerText = val;
-        // ここではまだsaveDataしない。ゲーム開始時に適用する。
     });
 
-    // 初回またはリセット時のみ残機設定を表示
     if (isFirstBoot) {
         document.getElementById('initial-lives-section').style.display = 'block';
     } else {
@@ -522,7 +518,6 @@ function updateMenuDisplay() {
     document.getElementById('max-reached-display').innerText = "到達: Lv." + fmt(gameData.maxReachedLevel);
     document.getElementById('cont-level-display').innerText = fmt(gameData.maxReachedLevel);
     document.getElementById('level-input').value = gameData.maxReachedLevel;
-    generateLevelList();
 }
 
 function bindTouch(id, key) {
@@ -544,16 +539,12 @@ function resizeCanvas() {
     const w = document.getElementById('game-wrapper');
     const aspect = GAME_WIDTH/GAME_HEIGHT;
     let dw = w.clientWidth, dh = w.clientHeight;
-    
-    // 画面内に収まるように計算
     if (dw/dh > aspect) dw = dh*aspect; else dh = dw/aspect;
-    
     const dpr = window.devicePixelRatio || 1;
     canvas.width = dw*dpr; canvas.height = dh*dpr;
     canvas.style.width = `${dw}px`; canvas.style.height = `${dh}px`;
     ctx.scale(dpr * (dw/GAME_WIDTH), dpr * (dh/GAME_HEIGHT));
     
-    // 他のCanvasもリサイズ
     ['minimap-canvas', 'result-map-canvas', 'history-route-canvas'].forEach(id => {
         const c = document.getElementById(id);
         if(c) { c.width = c.clientWidth*dpr; c.height = c.clientHeight*dpr; }
@@ -566,7 +557,6 @@ function updateCheatStatus() {
 
 function showPanel(id) {
     document.querySelectorAll('.game-panel').forEach(p => p.classList.remove('active'));
-    // ポーズボタンの表示制御
     const pauseBtn = document.getElementById('pause-container');
     if (!id && gameState === 'PLAYING') {
         pauseBtn.style.display = 'block';
@@ -574,7 +564,6 @@ function showPanel(id) {
         pauseBtn.style.display = 'none';
     }
 
-    // 自殺ボタンの有効無効（プレイ中のみ）
     const suicideBtn = document.getElementById('suicide-btn');
     if (gameState === 'PLAYING' && !id) {
         suicideBtn.classList.remove('disabled');
@@ -592,12 +581,15 @@ function showHelp() { showPanel('help-panel'); }
 
 /** SHOP **/
 const SHOP_ITEMS = [
-    { n: 1, cost: 100, discount: 0 },
-    { n: 5, cost: 475, discount: 5, saved: 25 },
-    { n: 10, cost: 900, discount: 10, saved: 100 },
-    { n: 25, cost: 2125, discount: 15, saved: 375 },
-    { n: 50, cost: 4000, discount: 20, saved: 1000 },
-    { n: 100, cost: 7500, discount: 25, saved: 2500 }
+    { type: 'life', n: 1, cost: 100, discount: 0 },
+    { type: 'life', n: 5, cost: 475, discount: 5, saved: 25 },
+    { type: 'life', n: 10, cost: 900, discount: 10, saved: 100 },
+    { type: 'life', n: 25, cost: 2125, discount: 15, saved: 375 },
+    { type: 'life', n: 50, cost: 4000, discount: 20, saved: 1000 },
+    { type: 'life', n: 100, cost: 7500, discount: 25, saved: 2500 },
+    { type: 'skip', n: 1, cost: 10000, discount: 0 },
+    { type: 'skip', n: 5, cost: 45000, discount: 10, saved: 5000 },
+    { type: 'skip', n: 10, cost: 75000, discount: 25, saved: 25000 }
 ];
 
 function showShop() {
@@ -606,7 +598,19 @@ function showShop() {
     const currentCoins = activeCheats.infiniteCoins ? "∞" : fmt(gameData.coins);
     document.getElementById('shop-coins').innerText = currentCoins;
     
+    let lastType = null;
+
     SHOP_ITEMS.forEach(item => {
+        if(lastType !== item.type) {
+            const title = document.createElement('div');
+            title.className = 'shop-section-title';
+            title.innerHTML = item.type === 'life' 
+                ? '<i class="bi bi-heart-fill text-danger"></i> 残機購入' 
+                : '<i class="bi bi-fast-forward-fill text-info"></i> レベルスキップ';
+            list.appendChild(title);
+            lastType = item.type;
+        }
+
         const div = document.createElement('div');
         div.className = 'shop-item';
         let originalPrice = Math.round(item.cost / ((100 - item.discount)/100));
@@ -616,13 +620,26 @@ function showShop() {
         let badge = item.discount > 0 ? `<span class="discount-badge">${item.discount}% OFF</span>` : '';
         let savedText = item.saved ? `<span class="saved-text">${fmt(item.saved)}コインお得</span>` : '';
         const canBuy = activeCheats.infiniteCoins || gameData.coins >= item.cost;
-        
+        const afterCoin = activeCheats.infiniteCoins ? "∞" : fmt(gameData.coins - item.cost);
+        const displayCoin = activeCheats.infiniteCoins ? "∞" : fmt(gameData.coins);
+
+        let itemName = item.type === 'life' 
+            ? `<i class="bi bi-heart-fill text-danger"></i> +${fmt(item.n)}`
+            : `<i class="bi bi-fast-forward-fill text-info"></i> +${fmt(item.n)} LV`;
+
+        const func = item.type === 'life' 
+            ? `buyLives(${item.n}, ${item.cost})`
+            : `buySkip(${item.n}, ${item.cost})`;
+
         div.innerHTML = `
-            <div><span class="fw-bold text-light">❤ ${fmt(item.n)}UP</span></div>
+            <div><span class="fw-bold text-light fs-5">${itemName}</span></div>
             <div class="price-container">
                 <div>${priceHtml} <i class="bi bi-circle-fill text-warning small"></i>${badge}</div>
                 ${savedText}
-                <button class="btn btn-sm btn-primary mt-1" ${canBuy?'':'disabled'} onclick="buyLives(${item.n}, ${item.cost})">購入</button>
+                <button class="btn btn-sm btn-primary mt-1 fw-bold px-3" ${canBuy?'':'disabled'} onclick="${func}">購入</button>
+                <div class="coin-calc">
+                    ${displayCoin} <i class="bi bi-arrow-right-short"></i> <span class="${canBuy?'text-light':'text-danger'}">${afterCoin}</span>
+                </div>
             </div>`;
         list.appendChild(div);
     });
@@ -636,6 +653,29 @@ function buyLives(n, cost) {
         saveData();
         showShop();
         updateHUD();
+    }
+}
+
+function buySkip(n, cost) {
+    if(gameData.coins >= cost || activeCheats.infiniteCoins) {
+        if(confirm(`${n}レベルスキップを購入しますか？`)) {
+            if(!activeCheats.infiniteCoins) gameData.coins -= cost;
+            gameData.maxReachedLevel += n;
+            
+            if(gameState === 'PLAYING' || gameState === 'PAUSED') {
+                currentLevel += n;
+                saveData();
+                resetLevel(true);
+                showPanel(null);
+                gameState = 'PLAYING';
+                startTimer();
+            } else {
+                saveData();
+                showShop();
+                updateMenuDisplay();
+            }
+            updateHUD();
+        }
     }
 }
 
@@ -673,44 +713,43 @@ function viewHistoryRoute(index) {
 }
 
 /** LEVEL UTILS **/
-function generateLevelList() { /* Stub for logic if needed */ }
-function adjustLevelInput(d) { const i = document.getElementById('level-input'); let v = parseInt(i.value)+d; if(v<1)v=1; if(v>10000)v=10000; i.value=v; }
-function startGameFromInput() { const v = parseInt(document.getElementById('level-input').value); if(v>=1&&v<=10000){ if(v<=gameData.maxReachedLevel||activeCheats.unlock) startGame(v); else alert("まだ解放されていません"); } }
+function generateLevelList() { /* Stub */ }
+function adjustLevelInput(d) { const i = document.getElementById('level-input'); let v = parseInt(i.value)+d; if(v<1)v=1; if(v>1000)v=1000; i.value=v; }
+function startGameFromInput() { const v = parseInt(document.getElementById('level-input').value); if(v>=1&&v<=1000){ if(v<=gameData.maxReachedLevel||activeCheats.unlock) startGame(v); else alert("まだ解放されていません"); } }
 function copySeed() { navigator.clipboard.writeText(currentSeed).then(()=>alert(`SEED: ${currentSeed} コピーしました`)); }
 
 function showMenu() { 
     gameState = 'MENU'; 
     isTimerRunning = false; 
-    startTime = 0; elapsedTime = 0; // タイマーリセット
+    startTime = 0; elapsedTime = 0;
     updateMenuDisplay();
     showPanel('menu-panel'); 
 }
 
 function startGame(lv) { 
-    // 初回プレイの場合、スライダーの値を残機に適用
     if(isFirstBoot) {
         gameData.lives = gameData.settings.initialLives;
         isFirstBoot = false;
         document.getElementById('initial-lives-section').style.display = 'none';
         saveData();
     }
-
     currentLevel = lv; 
     if(gameState==='MENU' && gameData.lives <= 0) {
-        if(gameData.lives <= 0 && gameData.coins < 100) {
-             alert("残機がありません。初期化するかチートを使用してください。");
+        if(!confirm("残機がありません。残機マイナス（借金モード）で開始しますか？")) {
              return;
         }
+        allowNegativeLives = true;
     }
     levelStartCoins=gameData.coins; levelStartLives=gameData.lives; 
-    player.respawnX=100; player.respawnY=200; allowNegativeLives=false; 
+    player.respawnX=100; player.respawnY=200; 
+    // allowNegativeLives is already handled above or kept from previous state if needed, 
+    // but typically we reset it unless explicitly continued. 
+    // However, if user confirmed, keep it. 
+    // Since global var allowNegativeLives is set above, we are good.
     
     resetLevel(true); 
-    
-    // 修正：状態遷移してからパネル更新（ボタン表示のため）
     gameState='PLAYING'; 
     showPanel(null); 
-    
     startTimer(); 
 }
 
@@ -718,17 +757,14 @@ function retryGame() {
     if(gameData.lives <= 0 && !allowNegativeLives && !activeCheats.god) return; 
     allowNegativeLives=false; player.respawnX=100; player.respawnY=200; 
     resetLevel(true); 
-    
-    // 修正
     gameState='PLAYING'; 
     showPanel(null); 
-    
     startTimer(); 
 }
 
 function resetAllData() {
     if(confirm("本当に全てのデータを初期化しますか？")) {
-        localStorage.removeItem('panicCat_save_v8');
+        localStorage.removeItem('panicCat_save_v11');
         location.reload();
     }
 }
@@ -737,29 +773,21 @@ function startTimer() { startTime = Date.now(); elapsedTime = 0; isTimerRunning 
 function nextLevel() { 
     currentLevel++; levelStartCoins=gameData.coins; levelStartLives=gameData.lives; player.respawnX=100; player.respawnY=200; 
     resetLevel(true); 
-    
-    // 修正
     gameState='PLAYING'; 
     showPanel(null); 
-    
     startTimer(); 
 }
 
 /** PAUSE **/
 function togglePause() {
     if (gameState === 'MENU' || gameState === 'CLEARED' || gameState === 'GAMEOVER' || player.dead) return;
-
     if(gameState === 'PLAYING') {
         gameState = 'PAUSED'; showPanel('pause-panel'); isTimerRunning = false;
     } else if (gameState === 'PAUSED') {
         gameState = 'PLAYING'; showPanel(null); isTimerRunning = true; startTime = Date.now() - elapsedTime;
     }
 }
-
-/** CONTROL CHECK **/
-function canControl() {
-    return gameState === 'PLAYING' && !player.dead;
-}
+function canControl() { return gameState === 'PLAYING' && !player.dead; }
 
 /** GAME LOGIC **/
 function resetLevel(fullReset) {
@@ -770,7 +798,6 @@ function resetLevel(fullReset) {
     player.crouching=false; player.jumpCount=0; player.isHipDropping=false;
     items=[]; particles=[]; 
     keys.jumpPressed=false; keys.hipPressed=false; 
-    // ジャンプなどの入力をクリア
     keys.left=false; keys.right=false; keys.jump=false; keys.down=false;
     goalPole.flagY=0;
 }
@@ -781,26 +808,40 @@ function generateWorld(lv) {
     const randInt = (min, max) => Math.floor(rand() * (max - min + 1)) + min;
     const width = 200 + (lv * 5); const height = 15; levelMap = Array(height).fill().map(() => Array(width).fill(T.EMPTY)); const gY = 11;
     activeBlocks = {}; 
+    
+    // 難易度係数
+    const difficulty = Math.min(1, (lv - 1) / 999);
+
     for(let x=0; x<15; x++) for(let y=gY; y<height; y++) levelMap[y][x] = T.GROUND;
     let cx = 15; const midPoint = Math.floor(width/2); let checkPointSet = false;
+    
     while(cx < width - 20) {
         if(!checkPointSet && cx >= midPoint) { for(let k=0; k<6; k++) for(let y=gY; y<height; y++) levelMap[y][cx+k] = T.GROUND; levelMap[gY-1][cx+3] = T.CHECKPOINT; checkPointSet = true; cx += 6; continue; }
         const pat = randInt(0, 9); const len = randInt(8, 12);
         
-        // Spawn ground
         if(pat !== 1 && pat !== 7) { 
+            let consecutiveTraps = 0;
             for(let x=0; x<len; x++) { 
-                let t = T.GROUND; if(rand() < 0.1) t = T.FALLING; else if (rand() < 0.05) t = T.FAKE; 
-                levelMap[gY][cx+x] = t; 
-                for(let y=gY+1; y<height; y++) levelMap[y][cx+x] = T.GROUND; 
-                if(rand() < 0.3) levelMap[gY-4][cx+x] = T.COIN; 
+                let t = T.GROUND; 
+                if(rand() < 0.05 + (0.2 * difficulty)) t = T.FALLING; 
+                else if (rand() < 0.02 + (0.15 * difficulty)) t = T.FAKE; 
                 
-                if(t === T.GROUND && rand() < 0.08 && x > 2 && x < len - 2) {
+                if (t !== T.GROUND) consecutiveTraps++;
+                else consecutiveTraps = 0;
+                if (consecutiveTraps > 3) { t = T.GROUND; consecutiveTraps = 0; }
+
+                levelMap[gY][cx+x] = t; 
+                // 本物の地面の時だけ下を埋める
+                if (t === T.GROUND) {
+                    for(let y=gY+1; y<height; y++) levelMap[y][cx+x] = T.GROUND; 
+                }
+
+                if(rand() < 0.3) levelMap[gY-4][cx+x] = T.COIN; 
+                if(t === T.GROUND && rand() < 0.05 + (0.15 * difficulty) && x > 2 && x < len - 2) {
                     spawnEnemy((cx+x)*TILE_SIZE, (gY-1)*TILE_SIZE);
                 }
             } 
         }
-
         switch(pat) {
             case 0: if(rand()<0.5) { const bx = cx + randInt(3, len-3); levelMap[gY-4][bx] = T.Q_BLOCK; levelMap[gY-4][bx-1] = T.HIDDEN; levelMap[gY-4][bx+1] = T.HIDDEN; if(levelMap[gY][bx] !== T.FAKE) levelMap[gY-1][bx] = T.SPIKE; } break;
             case 1: levelMap[gY-2][cx] = T.BLOCK; levelMap[gY-2][cx+1] = T.BLOCK; levelMap[gY-3][cx+Math.floor(len/2)] = T.FALLING; levelMap[gY-2][cx+len-1] = T.BLOCK; if(rand()<0.3) levelMap[gY-5][cx+Math.floor(len/2)] = T.HIDDEN; levelMap[gY-4][cx+Math.floor(len/2)] = T.COIN; break;
@@ -831,17 +872,15 @@ function gameLoop() {
 
 function update() {
     if(gameState === 'GOAL_ANIM') { updateGoalAnim(); return; }
-    if(gameState !== 'PLAYING') return; // タイトル画面などで操作不可にする
+    if(gameState !== 'PLAYING') return;
     if(player.dead) return;
 
-    // ヒップドロップ開始
     if((keys.down || keys.hip) && !player.grounded && !player.crouching && keys.hipPressed) { 
         player.vy = HIP_DROP_SPEED; 
         player.isHipDropping = true; 
         keys.hipPressed = false; 
     }
 
-    // ジャンプ・重力
     if(activeCheats.flight && (keys.jump || keys.up)) { player.vy = -5; player.grounded = false; }
     else if(activeCheats.flight && keys.down) player.vy = 5;
     else {
@@ -856,47 +895,34 @@ function update() {
                 player.jumpCount++; 
                 spawnParticles(player.x, player.y+20, '#FFF'); 
             }
-            // ジャンプ処理後は必ずフラグを下ろす（暴発防止）
             keys.jumpPressed = false; 
         }
         player.vy += activeCheats.flight ? 0 : GRAVITY;
     }
 
-    // 左右移動
     let acc = keys.run ? RUN_ACCEL : MOVE_SPEED;
-    let cap = keys.run ? (activeCheats.speed ? RUN_MAX_SPEED*1.5 : RUN_MAX_SPEED) : (activeCheats.speed ? MAX_SPEED*1.5 : MAX_SPEED);
+    let cap = keys.run ? RUN_MAX_SPEED : MAX_SPEED;
+    if(activeCheats.speed) { acc *= 3; cap *= 2.5; }
 
     if(keys.left) { player.vx -= acc; player.facingRight = false; }
     if(keys.right) { player.vx += acc; player.facingRight = true; }
 
-    // 摩擦
     if(keys.down && player.grounded && !activeCheats.flight) { player.crouching = true; player.vx *= CROUCH_FRICTION; }
     else { player.crouching = false; player.vx *= FRICTION; }
 
     if(player.vx > cap) player.vx = cap; if(player.vx < -cap) player.vx = -cap;
     if(Math.abs(player.vx) < 0.1) player.vx = 0;
 
-    // 移動と衝突判定（サブループ）
-    // ステップ数を増やしてすり抜けを防ぐ
     let steps = Math.ceil(Math.max(Math.abs(player.vx), Math.abs(player.vy)) / (TILE_SIZE * 0.25));
     let svx = player.vx/steps; let svy = player.vy/steps;
     
     for(let i=0; i<steps; i++) { 
-        // X移動
-        player.x += svx; 
-        checkCollisionX(player); 
-        
-        // Y移動
-        player.y += svy; 
-        checkCollisionY(player); 
+        player.x += svx; checkCollisionX(player); 
+        player.y += svy; checkCollisionY(player); 
     }
 
-    // ゴール判定
     if(player.x+player.w > goalPole.x && player.x < goalPole.x+10 && player.y < goalPole.y+goalPole.h && player.y+player.h > goalPole.y) startGoalAnim();
-    
-    // 落下死（偽の地面等で落ちた場合）
     if(player.y > GAME_HEIGHT + 100) die();
-    
     if(player.invincible > 0) player.invincible--;
     
     updateItems();
@@ -914,10 +940,7 @@ function updateEnemies() {
     for (let i = enemies.length - 1; i >= 0; i--) {
         let e = enemies[i];
         if (e.dead) { enemies.splice(i, 1); continue; }
-        
-        e.vy += GRAVITY;
-        e.x += e.vx;
-        // Enemy Collision X
+        e.vy += GRAVITY; e.x += e.vx;
         let startX = Math.floor(e.x/TILE_SIZE), endX = Math.floor((e.x+e.w-0.1)/TILE_SIZE);
         let startY = Math.floor(e.y/TILE_SIZE), endY = Math.floor((e.y+e.h-0.1)/TILE_SIZE);
         let colX = false;
@@ -925,22 +948,17 @@ function updateEnemies() {
         if(colX) { e.vx *= -1; e.x += e.vx * 2; }
 
         e.y += e.vy;
-        // Enemy Collision Y
         startX = Math.floor(e.x/TILE_SIZE); endX = Math.floor((e.x+e.w-0.1)/TILE_SIZE);
         startY = Math.floor(e.y/TILE_SIZE); endY = Math.floor((e.y+e.h-0.1)/TILE_SIZE);
         for(let y=startY; y<=endY; y++) for(let x=startX; x<=endX; x++) {
             if(isSolid(getTile(x, y)) && e.vy > 0) { e.y = y * TILE_SIZE - e.h; e.vy = 0; }
         }
-
         if (e.y > GAME_HEIGHT + 100) { enemies.splice(i, 1); continue; }
-
         if (intersect(player, e) && !player.dead) {
             if (player.vy > 0 && player.y + player.h < e.y + e.h / 2 + 10) {
                 e.dead = true; player.vy = -8; spawnParticles(e.x, e.y, '#8B4513');
                 if(!activeCheats.infiniteCoins) gameData.coins += 5;
-            } else {
-                hitDamage();
-            }
+            } else { hitDamage(); }
         }
     }
 }
@@ -949,11 +967,9 @@ function performHipDrop() { if(!player.grounded) { player.vy = HIP_DROP_SPEED; p
 function startGoalAnim() { gameState = 'GOAL_ANIM'; player.vx = 0; player.vy = 0; player.x = goalPole.x - 10; isTimerRunning = false; }
 function updateGoalAnim() { if(player.y < goalPole.y + goalPole.h - player.h) player.y += 4; else { if(goalPole.flagY < goalPole.h - 40) goalPole.flagY += 4; else if(gameState !== 'CLEARED') levelClear(); } }
 
-// 衝突判定Y（埋まり防止・すり抜け修正）
 function checkCollisionY(obj) {
     const offsetY = obj.crouching ? (obj.h - obj.crouchH) : 0;
     obj.grounded = false;
-
     const startX = Math.floor(obj.x / TILE_SIZE);
     const endX = Math.floor((obj.x + obj.w - 0.1) / TILE_SIZE);
     const startY = Math.floor((obj.y + offsetY) / TILE_SIZE);
@@ -962,8 +978,6 @@ function checkCollisionY(obj) {
     for (let y = startY; y <= endY; y++) {
         for (let x = startX; x <= endX; x++) {
             const t = getTile(x, y);
-            
-            // 特殊タイル処理
             if(obj===player) {
                 if(t===T.COIN) { levelMap[y][x] = T.EMPTY; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#FFD700'); }
                 if(t===T.CHECKPOINT) { levelMap[y][x] = T.CHECKPOINT_ON; player.respawnX = x*TILE_SIZE; player.respawnY = y*TILE_SIZE; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE, '#00FF00'); }
@@ -972,40 +986,24 @@ function checkCollisionY(obj) {
                 if(obj.vy<0 && obj.y<(y+1)*TILE_SIZE && obj.y>y*TILE_SIZE) handleHeadBump(x,y,t);
                 if(t===T.HIDDEN_TRIGGER) levelMap[y][x] = T.HARD_BLOCK;
             }
-
-            // 固いブロックへの衝突
             if (isSolid(t)) {
-                // FAKEはisSolidでfalseが返るのでここには来ない（通り抜ける）
-                
-                // 下方向への移動（着地）
                 if (obj.vy >= 0) {
-                    // プレイヤーの足元がタイルの上面付近にある場合のみ着地
                     if (obj.y + obj.h <= (y * TILE_SIZE) + (obj.vy + 10)) {
-                        obj.y = y * TILE_SIZE - obj.h;
-                        obj.vy = 0;
-                        obj.grounded = true;
-                        obj.jumpCount = 0;
-                        
+                        obj.y = y * TILE_SIZE - obj.h; obj.vy = 0; obj.grounded = true; obj.jumpCount = 0;
                         if((t===T.Q_BLOCK || t===T.COIN_BLOCK || t===T.MULTI_COIN_BLOCK || t===T.BLOCK) && player.isHipDropping) {
                              handleHeadBump(x,y,t); player.vy = -6;
                         }
                         if(t===T.FALLING && obj===player) setTimeout(()=>{ if(levelMap[y][x]===T.FALLING){levelMap[y][x]=T.EMPTY; spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#aaa');} },150);
                         player.isHipDropping = false;
                     }
-                } 
-                // 上方向への移動（頭突き）
-                else if (obj.vy < 0) {
-                     if (obj.y >= (y + 1) * TILE_SIZE - 10) {
-                        obj.y = (y + 1) * TILE_SIZE;
-                        obj.vy = 0;
-                    }
+                } else if (obj.vy < 0) {
+                     if (obj.y >= (y + 1) * TILE_SIZE - 10) { obj.y = (y + 1) * TILE_SIZE; obj.vy = 0; }
                 }
             }
         }
     }
 }
 
-// 衝突判定X（ワープ修正）
 function checkCollisionX(obj) {
     const offsetY = obj.crouching ? (obj.h - obj.crouchH) : 0;
     const startX = Math.floor(obj.x / TILE_SIZE);
@@ -1016,20 +1014,12 @@ function checkCollisionX(obj) {
     for (let y = startY; y <= endY; y++) {
         for (let x = startX; x <= endX; x++) {
             const t = getTile(x, y);
-            
             if(t===T.COIN && obj===player) { levelMap[y][x] = T.EMPTY; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#FFD700'); }
             if(obj===player && t===T.CHECKPOINT) { levelMap[y][x] = T.CHECKPOINT_ON; player.respawnX = x*TILE_SIZE; player.respawnY = y*TILE_SIZE; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE, '#00FF00'); }
             if(t===T.INVISIBLE_DEATH && obj===player) die();
             if(t===T.HIDDEN_TRIGGER) levelMap[y][x] = T.HARD_BLOCK;
-            
             if (isSolid(t)) {
-                if (obj.vx > 0) {
-                    // 右移動中：左端に合わせる
-                    obj.x = x * TILE_SIZE - obj.w - 0.01; 
-                } else if (obj.vx < 0) {
-                    // 左移動中：右端に合わせる
-                    obj.x = (x + 1) * TILE_SIZE + 0.01;
-                }
+                if (obj.vx > 0) { obj.x = x * TILE_SIZE - obj.w - 0.01; } else if (obj.vx < 0) { obj.x = (x + 1) * TILE_SIZE + 0.01; }
                 obj.vx = 0;
             }
         }
@@ -1056,10 +1046,7 @@ function handleHeadBump(x, y, t) {
     }
 }
 
-function isSolid(t) { 
-    // FAKE(9) はSolidではないので false を返す
-    return (t >= 1 && t <= 3) || (t >= 6 && t <= 12 && t !== T.FAKE) || t===T.CEILING_SPIKE || t===T.HIDDEN_TRIGGER || t===T.COIN_BLOCK || t===T.MULTI_COIN_BLOCK; 
-}
+function isSolid(t) { return (t >= 1 && t <= 3) || (t >= 6 && t <= 12 && t !== T.FAKE) || t===T.CEILING_SPIKE || t===T.HIDDEN_TRIGGER || t===T.COIN_BLOCK || t===T.MULTI_COIN_BLOCK; }
 function getTile(x, y) { if(y<0||y>=levelMap.length||x<0||x>=levelMap[0].length) return T.EMPTY; return levelMap[y][x]; }
 function intersect(a, b) { return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
 function spawnItem(x, y, type) { items.push({x:x, y:y, w:30, h:30, vx:2, vy:-5, type:type, active:false}); setTimeout(()=>{ if(items.length>0) items[items.length-1].active=true; },300); }
@@ -1069,12 +1056,11 @@ function hitDamage() { if(activeCheats.god || player.invincible>0) return; if(pl
 function die() { 
     if(activeCheats.god || player.dead) return; 
     player.dead = true; player.vy = -12; isTimerRunning = false; trail.push(null); saveData(); 
-    // 死亡時にキー入力をリセット
     keys.left=false; keys.right=false; keys.jump=false; keys.down=false;
     setTimeout(() => { 
         const cur = activeCheats.god ? '∞' : fmt(gameData.lives); 
         const nxt = activeCheats.god ? '∞' : fmt(gameData.lives - 1); 
-        document.getElementById('dead-lives-info').innerText = `❤️ ${cur} → ${nxt}`; 
+        document.getElementById('dead-lives-info').innerText = `${cur} → ${nxt}`; 
         if(gameData.lives <= 0 && !allowNegativeLives && !activeCheats.god) { 
             document.getElementById('go-retry-btn').disabled=true; 
             showPanel('gameover-panel'); 
@@ -1088,11 +1074,8 @@ function respawnPlayer() {
     if(player.dead) { if(!activeCheats.god && !allowNegativeLives) gameData.lives--; if(allowNegativeLives) gameData.lives--; } 
     if(gameData.lives < 0 && !allowNegativeLives) { showPanel('gameover-panel'); return; } 
     saveData(); resetLevel(false); 
-    
-    // 修正
     gameState = 'PLAYING'; 
     showPanel(null); 
-    
     isTimerRunning = true; 
 }
 function continueNegative() { allowNegativeLives = true; respawnPlayer(); }
@@ -1100,24 +1083,14 @@ function continueNegative() { allowNegativeLives = true; respawnPlayer(); }
 function levelClear() { 
     isTimerRunning = false; 
     gameState = 'CLEARED'; 
-    
-    if(currentLevel >= gameData.maxReachedLevel && !activeCheats.unlock) { 
-        gameData.maxReachedLevel = currentLevel + 1; 
-    } 
-    
+    if(currentLevel >= gameData.maxReachedLevel && !activeCheats.unlock) { gameData.maxReachedLevel = currentLevel + 1; } 
     document.getElementById('result-time').innerText = formatTime(elapsedTime); 
     let isNewRecord = false; 
-    if(!activeCheats.god && !activeCheats.flight) { 
-        if(!gameData.bestTimes[currentLevel] || elapsedTime < gameData.bestTimes[currentLevel]) { 
-            gameData.bestTimes[currentLevel] = elapsedTime; 
-            isNewRecord = true; 
-        } 
-    } 
+    if(!activeCheats.god && !activeCheats.flight) { if(!gameData.bestTimes[currentLevel] || elapsedTime < gameData.bestTimes[currentLevel]) { gameData.bestTimes[currentLevel] = elapsedTime; isNewRecord = true; } } 
     document.getElementById('new-record-msg').style.display = isNewRecord ? 'block' : 'none'; 
     const earned = activeCheats.infiniteCoins ? "∞" : fmt(gameData.coins - levelStartCoins); 
     document.getElementById('result-coins').innerText = earned; 
     document.getElementById('result-life-diff').innerText = `${fmt(levelStartLives)} → ${fmt(gameData.lives)}`; 
-    
     const now = new Date(); 
     gameData.history.push({ date: `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`, level: currentLevel, time: formatTime(elapsedTime), coins: gameData.coins, trail: [...trail] }); 
     saveData(); 
@@ -1126,7 +1099,7 @@ function levelClear() {
 }
 
 function confirmSuicide() { 
-    if(gameState !== 'PLAYING') return; // プレイ中以外は無効
+    if(gameState !== 'PLAYING') return;
     isTimerRunning = false; 
     const cur = activeCheats.god?'∞':fmt(gameData.lives); 
     const nxt = activeCheats.god?'∞':fmt(gameData.lives-1); 
@@ -1147,18 +1120,13 @@ function updateHUD() {
     lSpan.innerText = activeCheats.god ? "∞" : fmt(gameData.lives); 
     lSpan.style.color = gameData.lives < 0 ? '#ff0000' : '#ff4d4d'; 
     document.getElementById('disp-coins').innerText = activeCheats.infiniteCoins ? "∞" : fmt(gameData.coins); 
-    
-    if(gameState === 'PLAYING' && isTimerRunning && startTime > 0) {
-        elapsedTime = Date.now() - startTime; 
-    }
+    if(gameState === 'PLAYING' && isTimerRunning && startTime > 0) { elapsedTime = Date.now() - startTime; }
     document.getElementById('disp-time').innerText = formatTime(elapsedTime); 
 }
 
 function formatTime(ms) { 
     if(isNaN(ms) || ms < 0) return "00:00.00";
-    const c = Math.floor((ms%1000)/10); 
-    const s = Math.floor((ms/1000)%60); 
-    const m = Math.floor((ms/60000)); 
+    const c = Math.floor((ms%1000)/10); const s = Math.floor((ms/1000)%60); const m = Math.floor((ms/60000)); 
     return `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}.${c.toString().padStart(2,'0')}`; 
 }
 function spawnParticles(x, y, color) { for(let i=0; i<6; i++) particles.push({x:x, y:y, vx:(Math.random()-0.5)*8, vy:(Math.random()-0.5)*8, color:color, life:20}); }
@@ -1185,26 +1153,32 @@ function drawMapOnCanvas(c, hideSpoilers, trailData) {
     c.clearRect(0, 0, cv.width, cv.height);
     const mapW = levelMap[0].length * TILE_SIZE, mapH = levelMap.length * TILE_SIZE;
     let scale = cv.width / mapW; if(mapH * scale > cv.height) scale = cv.height / mapH;
+    
+    // Fix: Ensure minimum visibility for large maps
+    const drawSize = Math.max(scale * TILE_SIZE, 0.5);
+    
     const offsetX = (cv.width - mapW*scale) / 2, offsetY = (cv.height - mapH*scale) / 2;
-    c.save(); c.translate(offsetX, offsetY); c.scale(scale, scale);
+    c.save(); c.translate(offsetX, offsetY);
+    // We scale manually for coordinates but enforce min size for rects
+    
     for(let y=0; y<levelMap.length; y++) for(let x=0; x<levelMap[0].length; x++) {
         let t = levelMap[y][x];
         if(hideSpoilers) { if(t===T.FALLING||t===T.FAKE||t===T.FAKE_SPIKE) t=T.GROUND; if(t===T.HIDDEN||t===T.INVISIBLE_DEATH||t===T.HIDDEN_TRIGGER) t=T.EMPTY; }
         if(t!==T.EMPTY) {
             if(t===T.GROUND) c.fillStyle='#654321'; else if(t===T.BLOCK||t===T.HARD_BLOCK) c.fillStyle='#A0522D'; else if(t===T.SPIKE||t===T.CEILING_SPIKE) c.fillStyle='#CCC';
-            else if(t===T.POLE) { c.fillStyle='#eee'; c.fillRect(x*TILE_SIZE+15, y*TILE_SIZE-200, 10, 240); continue; } else if(t===T.CHECKPOINT_ON) c.fillStyle='#0f0'; else if(t===T.CHECKPOINT) c.fillStyle='#ff0'; else if(t===T.COIN) c.fillStyle='#FFD700';
+            else if(t===T.POLE) { c.fillStyle='#eee'; c.fillRect(x*TILE_SIZE*scale+15*scale, y*TILE_SIZE*scale-200*scale, 10*scale, 240*scale); continue; } else if(t===T.CHECKPOINT_ON) c.fillStyle='#0f0'; else if(t===T.CHECKPOINT) c.fillStyle='#ff0'; else if(t===T.COIN) c.fillStyle='#FFD700';
             else if(t===T.COIN_BLOCK||t===T.MULTI_COIN_BLOCK) c.fillStyle='#DAA520'; else if(t===T.Q_BLOCK) c.fillStyle='#FFD700'; else continue;
-            c.fillRect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            c.fillRect(x*TILE_SIZE*scale, y*TILE_SIZE*scale, drawSize, drawSize);
         }
     }
     if(trailData) {
-        c.strokeStyle = '#FF0000'; c.lineWidth = TILE_SIZE; c.lineCap='round'; c.lineJoin='round'; c.globalAlpha=0.8;
+        c.strokeStyle = '#FF0000'; c.lineWidth = Math.max(1, TILE_SIZE*scale); c.lineCap='round'; c.lineJoin='round'; c.globalAlpha=0.8;
         c.beginPath(); 
         let startNew=true;
-        for(let i=0; i<trailData.length; i++) { if(trailData[i]===null){startNew=true; continue;} if(startNew){c.moveTo(trailData[i].x, trailData[i].y); startNew=false;} else c.lineTo(trailData[i].x, trailData[i].y); } 
+        for(let i=0; i<trailData.length; i++) { if(trailData[i]===null){startNew=true; continue;} if(startNew){c.moveTo(trailData[i].x*scale, trailData[i].y*scale); startNew=false;} else c.lineTo(trailData[i].x*scale, trailData[i].y*scale); } 
         c.stroke();
     }
-    c.globalAlpha=1.0; c.fillStyle='#FFF'; c.beginPath(); c.arc(player.x+player.w/2, player.y+player.h/2, TILE_SIZE, 0, Math.PI*2); c.fill();
+    c.globalAlpha=1.0; c.fillStyle='#FFF'; c.beginPath(); c.arc(player.x*scale+player.w/2*scale, player.y*scale+player.h/2*scale, drawSize, 0, Math.PI*2); c.fill();
     c.restore();
 }
 function drawCat(p) {
@@ -1214,39 +1188,24 @@ function drawCat(p) {
     ctx.fillStyle='#FFF'; ctx.strokeStyle='#DDD'; ctx.lineWidth=1;
     ctx.beginPath(); ctx.ellipse(0,4,12,8,0,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(8,-4,9,0,Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.moveTo(4,-10); ctx.lineTo(2,-16); ctx.lineTo(10,-10); ctx.fill(); ctx.beginPath(); ctx.moveTo(12,-10); ctx.lineTo(14,-16); ctx.lineTo(6,-10); ctx.fill();
-    ctx.fillStyle='#333'; if(p.dead) ctx.fillText('x x',4,-2); else { ctx.beginPath(); ctx.arc(6,-5,1.5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(10,-5,1.5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.moveTo(7,-2); ctx.lineTo(8,-1); ctx.lineTo(9,-2); ctx.stroke(); }
+    ctx.fillStyle='#333'; if(p.dead) { ctx.beginPath(); ctx.moveTo(2,-4); ctx.lineTo(6,0); ctx.moveTo(6,-4); ctx.lineTo(2,0); ctx.stroke(); } else { ctx.beginPath(); ctx.arc(6,-5,1.5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(10,-5,1.5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.moveTo(7,-2); ctx.lineTo(8,-1); ctx.lineTo(9,-2); ctx.stroke(); }
     ctx.strokeStyle='#FFF'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(-10,2); const wag = (!p.dead && Math.abs(p.vx)>0.1) ? Math.sin(frameCount*0.5)*5 : 0; ctx.quadraticCurveTo(-18,-5+wag, -15,-10+wag); ctx.stroke();
     ctx.fillStyle='#FFF'; if(Math.abs(p.vx)>0.1 && !p.dead) { const l = Math.sin(frameCount*0.8)*4; ctx.beginPath(); ctx.arc(-6+l,12,3,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(6-l,12,3,0,Math.PI*2); ctx.fill(); } else { ctx.beginPath(); ctx.arc(-6,12,3,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(6,12,3,0,Math.PI*2); ctx.fill(); }
     ctx.restore();
 }
-
 function drawEnemy(e) {
-    const cx = e.x + e.w/2;
-    const cy = e.y + e.h/2;
-    ctx.save();
-    ctx.translate(cx, cy);
-    if(e.vx > 0) ctx.scale(-1, 1); 
-    ctx.fillStyle = '#8B4513';
-    ctx.beginPath(); ctx.ellipse(0, 4, 13, 10, 0, 0, Math.PI*2); ctx.fill();
+    const cx = e.x + e.w/2; const cy = e.y + e.h/2;
+    ctx.save(); ctx.translate(cx, cy); if(e.vx > 0) ctx.scale(-1, 1); 
+    ctx.fillStyle = '#8B4513'; ctx.beginPath(); ctx.ellipse(0, 4, 13, 10, 0, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(8, -4, 10, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.moveTo(4, -10); ctx.lineTo(2, -18); ctx.lineTo(12, -10); ctx.fill();
     ctx.beginPath(); ctx.moveTo(14, -10); ctx.lineTo(16, -18); ctx.lineTo(8, -10); ctx.fill();
-    ctx.fillStyle = '#FFD700'; 
-    ctx.beginPath(); ctx.arc(6, -5, 2.5, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(12, -5, 2.5, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = 'black';
-    ctx.beginPath(); ctx.arc(6, -5, 1, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(12, -5, 1, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = 'black'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(4, -9); ctx.lineTo(8, -6); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(14, -9); ctx.lineTo(10, -6); ctx.stroke();
-    ctx.fillStyle = '#5A2E0E';
-    const l = Math.sin(frameCount * 0.5) * 5;
-    ctx.beginPath(); ctx.arc(-5 + l, 12, 3.5, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(5 - l, 12, 3.5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#FFD700'; ctx.beginPath(); ctx.arc(6, -5, 2.5, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(12, -5, 2.5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(6, -5, 1, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(12, -5, 1, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = 'black'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(4, -9); ctx.lineTo(8, -6); ctx.stroke(); ctx.beginPath(); ctx.moveTo(14, -9); ctx.lineTo(10, -6); ctx.stroke();
+    ctx.fillStyle = '#5A2E0E'; const l = Math.sin(frameCount * 0.5) * 5; ctx.beginPath(); ctx.arc(-5 + l, 12, 3.5, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(5 - l, 12, 3.5, 0, Math.PI*2); ctx.fill();
     ctx.restore();
 }
-
 function drawTile(c, x, y, t) {
     const px=x*TILE_SIZE, py=y*TILE_SIZE;
     if(t===T.HIDDEN||t===T.INVISIBLE_DEATH||t===T.HIDDEN_TRIGGER) return;
@@ -1257,7 +1216,11 @@ function drawTile(c, x, y, t) {
     else if(t===T.Q_BLOCK || t===T.COIN_BLOCK) { c.fillStyle=t===T.COIN_BLOCK?'#FFD700':'#FFA500'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.fillStyle='#B8860B'; c.font='bold 24px sans-serif'; c.textAlign='center'; c.fillText(t===T.COIN_BLOCK?'$':'?',px+20,py+30); c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); }
     else if(t===T.MULTI_COIN_BLOCK) { c.fillStyle='#FF69B4'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.fillStyle='#C71585'; c.font='bold 24px sans-serif'; c.textAlign='center'; c.fillText('$',px+20,py+30); c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); }
     else if(t===T.USED_BLOCK) { c.fillStyle='#5c3a21'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); }
-    else if(t===T.FACE_BLOCK) { c.fillStyle='#FFCC99'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); c.fillStyle='black'; c.font='14px sans-serif'; c.textAlign='center'; c.fillText('( ﾟ∀ﾟ)',px+20,py+25); }
+    else if(t===T.FACE_BLOCK) { 
+        c.fillStyle='#FFCC99'; c.fillRect(px,py,TILE_SIZE,TILE_SIZE); c.strokeRect(px,py,TILE_SIZE,TILE_SIZE); 
+        c.fillStyle='black'; c.beginPath(); c.arc(px+12, py+15, 3, 0, Math.PI*2); c.fill(); c.beginPath(); c.arc(px+28, py+15, 3, 0, Math.PI*2); c.fill();
+        c.beginPath(); c.arc(px+20, py+25, 8, 0, Math.PI, false); c.stroke();
+    }
     else if(t===T.SPIKE) { c.fillStyle='#C0C0C0'; c.beginPath(); c.moveTo(px,py+TILE_SIZE); c.lineTo(px+20,py+5); c.lineTo(px+40,py+TILE_SIZE); c.fill(); }
     else if(t===T.CEILING_SPIKE) { c.fillStyle='#C0C0C0'; c.beginPath(); c.moveTo(px,py); c.lineTo(px+20,py+35); c.lineTo(px+40,py); c.fill(); }
     else if(t===T.CHECKPOINT||t===T.CHECKPOINT_ON) { c.fillStyle='#555'; c.fillRect(px+5,py+10,5,30); c.fillStyle=(t===T.CHECKPOINT_ON)?'#00FF00':'#FF0000'; c.beginPath(); c.moveTo(px+10,py+10); c.lineTo(px+35,py+20); c.lineTo(px+10,py+30); c.fill(); }
@@ -1267,14 +1230,13 @@ function drawItem(it) {
     const cx=it.x+it.w/2, cy=it.y+it.h/2; ctx.save(); ctx.translate(cx,cy);
     if(it.type===I.MUSHROOM) ctx.fillStyle='#FF3333'; else if(it.type===I.POISON) ctx.fillStyle='#800080'; else ctx.fillStyle='#AAA';
     ctx.beginPath(); ctx.arc(0,-5,15,Math.PI,0); ctx.fill(); ctx.fillStyle='#FFEBCD'; ctx.beginPath(); ctx.ellipse(0,5,9,9,0,0,Math.PI*2); ctx.fill();
-    if(it.type===I.POISON) { ctx.fillStyle='white'; ctx.font='12px sans-serif'; ctx.fillText('☠',-5,-2); } ctx.restore();
+    if(it.type===I.POISON) { ctx.fillStyle='white'; ctx.beginPath(); ctx.moveTo(-4,-4); ctx.lineTo(4,4); ctx.moveTo(4,-4); ctx.lineTo(-4,4); ctx.stroke(); } ctx.restore();
 }
 
 // Input
 window.addEventListener('keydown', e => {
     if(e.key==='Escape') { togglePause(); return; }
-    if(!canControl()) return; // プレイ中以外は入力を受け付けない
-
+    if(!canControl()) return; 
     if(e.key==='ArrowLeft'||e.key==='a') keys.left=true; 
     if(e.key==='ArrowRight'||e.key==='d') keys.right=true;
     if(e.key==='ArrowUp'||e.key==='w') keys.up=true; 

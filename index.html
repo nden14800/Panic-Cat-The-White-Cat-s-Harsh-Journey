@@ -205,8 +205,9 @@
                 <button class="btn btn-info btn-sm fw-bold px-4" onclick="showHelp()"><i class="bi bi-question-circle"></i> 遊び方</button>
                 <button class="btn btn-success btn-sm fw-bold px-4" onclick="showShop()"><i class="bi bi-cart-fill"></i> ショップ</button>
                 <button class="btn btn-secondary btn-sm fw-bold px-4" onclick="showHistory()"><i class="bi bi-clock-history"></i> 履歴</button>
-                <button class="btn btn-danger btn-sm fw-bold px-4" onclick="showCheats()"><i class="bi bi-lightning-fill"></i> チート</button>
+                <button class="btn btn-primary btn-sm fw-bold px-4" onclick="showSettings()"><i class="bi bi-gear-fill"></i> 設定</button>
             </div>
+            <div class="mb-2"><button class="btn btn-danger btn-sm fw-bold px-4" onclick="showCheats()"><i class="bi bi-lightning-fill"></i> チート</button></div>
 
             <div class="seed-box bg-dark p-2 rounded border border-secondary mb-3 d-inline-block">
                 <span class="font-monospace">SEED: <span id="menu-seed-val">---</span></span>
@@ -283,6 +284,26 @@
             <button class="btn btn-light fw-bold w-100" onclick="showHistory()"><i class="bi bi-arrow-return-left"></i> 戻る</button>
         </div>
 
+        <!-- Settings Panel -->
+        <div id="settings-panel" class="game-panel">
+            <h3 class="text-primary fw-bold"><i class="bi bi-gear-fill"></i> 設定</h3>
+            <div class="text-start bg-dark p-4 rounded border border-secondary mb-3 mx-auto" style="max-width: 400px;">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <label class="form-check-label fw-bold" for="setting-bgm"><i class="bi bi-music-note-beamed"></i> BGM (音楽)</label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" id="setting-bgm" checked>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <label class="form-check-label fw-bold" for="setting-se"><i class="bi bi-volume-up-fill"></i> SE (効果音)</label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" id="setting-se" checked>
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-light fw-bold w-100" onclick="showMenu()"><i class="bi bi-check-lg"></i> 閉じる</button>
+        </div>
+
         <!-- Cheat Settings -->
         <div id="cheat-panel" class="game-panel">
             <h3 class="text-danger fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> チート設定</h3>
@@ -336,9 +357,8 @@
                 <ul class="text-light">
                     <li>見た目通りの床とは限りません。</li>
                     <li>アイテムが助けてくれるとは限りません。</li>
-                    <li>何もないところからブロックが現れます。</li>
-                    <li><strong>New!</strong> リスポーン時に周囲の敵が消えるようになりました。</li>
-                    <li><strong>New!</strong> トラップの数が大幅に増加し、コーステーマも増えました。</li>
+                    <li>何もないところからブロックが現れます（4マス以上の大穴にも対応）。</li>
+                    <li><strong>New!</strong> 偽物のゴールポールは近づくと逃げます。</li>
                     <li><strong class="text-danger">New!</strong> 天井のトゲはジャンプで触れると即死します。</li>
                 </ul>
                 <div class="row mt-4">
@@ -451,6 +471,150 @@
 /** UTILS **/
 const fmt = (n) => n.toLocaleString('ja-JP');
 
+/** AUDIO SYSTEM (Modern/Ambient Web Audio) **/
+const Sound = {
+    ctx: null,
+    bgmNode: null,
+    bgmInterval: null,
+    masterGain: null,
+    
+    init: function() {
+        if(!this.ctx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioContext();
+            this.masterGain = this.ctx.createGain();
+            this.masterGain.connect(this.ctx.destination);
+            
+            // Resume context if suspended (browser policy)
+            if(this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+        }
+    },
+
+    playBGM: function() {
+        if(!gameData.settings.audio.bgm) return;
+        this.init();
+        if(this.bgmInterval) return;
+
+        // Modern Ambient Pad Generator
+        // Plays a chord sequence: Imaj7 -> IVmaj7 -> Vadd9 -> Imaj7
+        const rootFreqs = [261.63, 349.23, 392.00, 261.63]; // C4, F4, G4, C4
+        let step = 0;
+
+        const playChord = () => {
+            if(!gameData.settings.audio.bgm || gameState !== 'PLAYING') return;
+            const root = rootFreqs[step % rootFreqs.length];
+            // Major 7th / Add9 intervals
+            const freqs = [root, root * 1.25, root * 1.5, root * 1.875]; 
+            
+            freqs.forEach((f, i) => {
+                // Detuned oscillators for pad richness
+                this.createPadNote(f * 0.5, 3.5, 0.05); // Bass
+                this.createPadNote(f, 3.0, 0.03);       // Mid
+                setTimeout(() => this.createPadNote(f * 2, 2.5, 0.02), i * 100); // High Arp
+            });
+            step++;
+        };
+
+        playChord();
+        this.bgmInterval = setInterval(playChord, 3500); // Slow ambient tempo
+    },
+
+    createPadNote: function(freq, duration, vol) {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+
+        osc.type = 'triangle'; // Softer than sawtooth
+        osc.frequency.value = freq;
+        
+        // Slight detune for chorus effect
+        osc.detune.value = (Math.random() - 0.5) * 15;
+
+        // Lowpass filter for warm pad sound
+        filter.type = 'lowpass';
+        filter.frequency.value = 600 + Math.random() * 400;
+        filter.Q.value = 1;
+
+        // Slow attack and release envelope
+        const now = this.ctx.currentTime;
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(vol, now + 1.0); // Attack
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration); // Release
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start(now);
+        osc.stop(now + duration);
+    },
+
+    stopBGM: function() {
+        if(this.bgmInterval) {
+            clearInterval(this.bgmInterval);
+            this.bgmInterval = null;
+        }
+    },
+
+    playSE: function(type) {
+        if(!gameData.settings.audio.se) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+
+        // 音量を全体的に大きく修正
+        if(type === 'jump') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(150, now);
+            osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+            gain.gain.setValueAtTime(0.3, now); // Increased
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+            osc.start(now); osc.stop(now + 0.15);
+        } else if(type === 'coin') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1200, now);
+            osc.frequency.setValueAtTime(1800, now + 0.05);
+            gain.gain.setValueAtTime(0.25, now); // Increased
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+            osc.start(now); osc.stop(now + 0.5);
+        } else if(type === 'break') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(100, now);
+            osc.frequency.exponentialRampToValueAtTime(50, now + 0.1);
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(3000, now);
+            filter.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+            gain.gain.setValueAtTime(0.3, now); // Increased
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+            osc.start(now); osc.stop(now + 0.15);
+        } else if(type === 'bump') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(80, now);
+            gain.gain.setValueAtTime(0.4, now); // Increased
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+            osc.start(now); osc.stop(now + 0.1);
+        } else if(type === 'dead') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(200, now);
+            osc.frequency.exponentialRampToValueAtTime(50, now + 1.0);
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(1000, now);
+            filter.frequency.linearRampToValueAtTime(100, now + 1.0);
+            gain.gain.setValueAtTime(0.4, now); // Increased
+            gain.gain.linearRampToValueAtTime(0, now + 1.0);
+            osc.start(now); osc.stop(now + 1.0);
+        }
+    }
+};
+
 /** SYSTEM **/
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d', { alpha: false });
@@ -459,18 +623,32 @@ const GAME_HEIGHT = 450;
 const TILE_SIZE = 40;
 
 // Data
-let gameData = { lives: 10, coins: 0, maxReachedLevel: 1, history: [], bestTimes: {}, settings: { initialLives: 10 } };
+let gameData = { 
+    lives: 10, 
+    coins: 0, 
+    maxReachedLevel: 1, 
+    history: [], 
+    bestTimes: {}, 
+    settings: { 
+        initialLives: 10,
+        audio: { bgm: true, se: true }
+    } 
+};
 let isFirstBoot = true; 
 
 // Load Save
-const saved = localStorage.getItem('panicCat_save_v15_fix_death');
+const saved = localStorage.getItem('panicCat_save_v17_audio_no_brick');
 if(saved) { 
     try { 
-        gameData = { ...gameData, ...JSON.parse(saved) }; 
+        const parsed = JSON.parse(saved);
+        gameData = { ...gameData, ...parsed };
+        // Ensure nested objects exist
+        if(!gameData.settings) gameData.settings = {};
+        if(!gameData.settings.audio) gameData.settings.audio = { bgm: true, se: true };
         isFirstBoot = false;
     } catch(e){} 
 }
-function saveData() { localStorage.setItem('panicCat_save_v15_fix_death', JSON.stringify(gameData)); }
+function saveData() { localStorage.setItem('panicCat_save_v17_audio_no_brick', JSON.stringify(gameData)); }
 
 // Themes
 const THEMES = [
@@ -511,7 +689,7 @@ const T = {
     HIDDEN_SPIKE: 27,  
     FALLING_CLOUD: 28, 
     FAKE_STAR: 29,     
-    BG_FALL_TRIGGER: 30 
+    BG_FALL_TRIGGER: 30
 };
 
 const I = { 
@@ -545,6 +723,21 @@ function initSystem() {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
     
+    // Init Audio Settings UI
+    document.getElementById('setting-bgm').checked = gameData.settings.audio.bgm;
+    document.getElementById('setting-se').checked = gameData.settings.audio.se;
+    
+    document.getElementById('setting-bgm').addEventListener('change', e => {
+        gameData.settings.audio.bgm = e.target.checked;
+        saveData();
+        if(e.target.checked && gameState === 'PLAYING') Sound.playBGM();
+        else Sound.stopBGM();
+    });
+    document.getElementById('setting-se').addEventListener('change', e => {
+        gameData.settings.audio.se = e.target.checked;
+        saveData();
+    });
+
     const range = document.getElementById('lives-range');
     range.value = gameData.settings.initialLives; 
     document.getElementById('lives-val').innerText = range.value;
@@ -684,6 +877,7 @@ function showPanel(id) {
     }
 }
 function showCheats() { showPanel('cheat-panel'); }
+function showSettings() { showPanel('settings-panel'); }
 function showHelp() { showPanel('help-panel'); }
 
 /** SHOP **/
@@ -826,12 +1020,14 @@ function copySeed() { navigator.clipboard.writeText(currentSeed).then(()=>alert(
 function showMenu() { 
     gameState = 'MENU'; 
     isTimerRunning = false; 
+    Sound.stopBGM();
     startTime = 0; elapsedTime = 0;
     updateMenuDisplay();
     showPanel('menu-panel'); 
 }
 
 function startGame(lv) { 
+    Sound.init(); // Initialize audio context on user gesture
     if(isFirstBoot) {
         gameData.lives = gameData.settings.initialLives;
         isFirstBoot = false;
@@ -850,6 +1046,7 @@ function startGame(lv) {
     
     resetLevel(true); 
     gameState='PLAYING'; 
+    Sound.playBGM();
     showPanel(null); 
     startTimer(); 
 }
@@ -859,13 +1056,14 @@ function retryGame() {
     allowNegativeLives=false; player.respawnX=100; player.respawnY=200; 
     resetLevel(true); 
     gameState='PLAYING'; 
+    Sound.playBGM();
     showPanel(null); 
     startTimer(); 
 }
 
 function resetAllData() {
     if(confirm("本当に全てのデータを初期化しますか？")) {
-        localStorage.removeItem('panicCat_save_v15_fix_death');
+        localStorage.removeItem('panicCat_save_v17_audio_no_brick');
         location.reload();
     }
 }
@@ -875,6 +1073,7 @@ function nextLevel() {
     currentLevel++; levelStartCoins=gameData.coins; levelStartLives=gameData.lives; player.respawnX=100; player.respawnY=200; 
     resetLevel(true); 
     gameState='PLAYING'; 
+    Sound.playBGM();
     showPanel(null); 
     startTimer(); 
 }
@@ -883,9 +1082,9 @@ function nextLevel() {
 function togglePause() {
     if (gameState === 'MENU' || gameState === 'CLEARED' || gameState === 'GAMEOVER' || player.dead) return;
     if(gameState === 'PLAYING') {
-        gameState = 'PAUSED'; showPanel('pause-panel'); isTimerRunning = false;
+        gameState = 'PAUSED'; showPanel('pause-panel'); isTimerRunning = false; Sound.stopBGM();
     } else if (gameState === 'PAUSED') {
-        gameState = 'PLAYING'; showPanel(null); isTimerRunning = true; startTime = Date.now() - elapsedTime;
+        gameState = 'PLAYING'; showPanel(null); isTimerRunning = true; startTime = Date.now() - elapsedTime; Sound.playBGM();
     }
 }
 function canControl() { return gameState === 'PLAYING' && !player.dead; }
@@ -959,10 +1158,11 @@ function generateWorld(lv) {
             let holeLen = randInt(2, 3 + Math.floor(difficulty * 2));
             if (holeLen > 6) holeLen = 6; 
             
-            // Kaizo Gap: Invisible ceiling over pit (Logic fixed to cover wide gaps)
+            // Kaizo Gap: Invisible ceiling over pit (UPDATED for wider holes)
             if (rand() < 0.4 + (difficulty * 0.5)) {
-                for(let k=0; k<holeLen+2; k++) { // Cover entire gap + margins
-                    if (gY-4 >= 0) levelMap[gY-4][cx-1+k] = T.TROLL_HIDDEN;
+                // Cover from before the hole starts to after it ends
+                for(let k=-1; k<holeLen+2; k++) { 
+                    if (gY-4 >= 0) levelMap[gY-4][cx+k] = T.TROLL_HIDDEN;
                 }
             }
             // Invisible death ONLY inside pit (bottom row)
@@ -980,7 +1180,7 @@ function generateWorld(lv) {
                 if (rand() < 0.05 + (difficulty * 0.25)) {
                     tile = (rand() < 0.5) ? T.FALL_TRAP : T.DELAY_FALL;
                 }
-                // Hidden Spike (New) - kept but ensure it's visible as ground first
+                // Hidden Spike
                 if (rand() < 0.03 + (difficulty * 0.1)) {
                     tile = T.HIDDEN_SPIKE;
                 }
@@ -1057,7 +1257,6 @@ function generateWorld(lv) {
         }
         else if (pat === 4) { // Ceiling Spikes
             levelMap[gY-4][cx] = T.CEILING_SPIKE;
-            // REMOVED: INVISIBLE DEATH ON GROUND (Fixes dying before hole)
         }
         else if (pat === 5) { // Invisible bridge
             if (levelMap[gY][cx+1] === T.EMPTY && levelMap[gY][cx+2] === T.EMPTY) {
@@ -1115,8 +1314,8 @@ function generateWorld(lv) {
     
     // Fake/Runaway/Laser Pole
     const r = rand();
-    if (difficulty > 0.1 && r < 0.2) goalPole.runaway = true;
-    else if (difficulty > 0.3 && r < 0.4) goalPole.laser = true;
+    if (difficulty > 0.05 && r < 0.25) goalPole.runaway = true; // Increased probability
+    else if (difficulty > 0.3 && r < 0.45) goalPole.laser = true;
     
     if(player.respawnX > 500) { 
         for(let y=0; y<height; y++) for(let x=0; x<width; x++) if(levelMap[y][x]===T.CHECKPOINT) levelMap[y][x]=T.CHECKPOINT_ON; 
@@ -1152,10 +1351,12 @@ function update() {
                 player.grounded = false; 
                 player.jumpCount = 1; 
                 spawnParticles(player.x, player.y+20, '#FFF'); 
+                Sound.playSE('jump');
             } else if (player.jumpCount < 2 || activeCheats.infinite) { 
                 player.vy = -JUMP_FORCE * 0.9; 
                 player.jumpCount++; 
                 spawnParticles(player.x, player.y+20, '#FFF'); 
+                Sound.playSE('jump');
             }
             keys.jumpPressed = false; 
         }
@@ -1196,8 +1397,8 @@ function update() {
         }
         if(flagMoved) {
             goalPole.x += goalPole.speed;
-            if(dist > 600) goalPole.speed = 0;
-            else goalPole.speed = 4.5;
+            if(dist > 700) goalPole.speed = 0; // Stop far away
+            else if(dist < 300) goalPole.speed = 4.5; // Resume run
         }
     }
     if(goalPole.laser && dist < 300 && !laserActive) {
@@ -1273,7 +1474,7 @@ function updateEnemies() {
     }
 }
 
-function startGoalAnim() { gameState = 'GOAL_ANIM'; player.vx = 0; player.vy = 0; player.x = goalPole.x - 10; isTimerRunning = false; }
+function startGoalAnim() { gameState = 'GOAL_ANIM'; player.vx = 0; player.vy = 0; player.x = goalPole.x - 10; isTimerRunning = false; Sound.stopBGM(); }
 function updateGoalAnim() { 
     if(player.y < goalPole.y + goalPole.h - player.h) player.y += 4; 
     else { 
@@ -1294,8 +1495,8 @@ function checkCollisionY(obj) {
         for (let x = startX; x <= endX; x++) {
             const t = getTile(x, y);
             if(obj===player) {
-                if(t===T.COIN) { levelMap[y][x] = T.EMPTY; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#FFD700'); }
-                if(t===T.CHECKPOINT) { levelMap[y][x] = T.CHECKPOINT_ON; player.respawnX = x*TILE_SIZE; player.respawnY = y*TILE_SIZE; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE, '#00FF00'); }
+                if(t===T.COIN) { levelMap[y][x] = T.EMPTY; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#FFD700'); Sound.playSE('coin'); }
+                if(t===T.CHECKPOINT) { levelMap[y][x] = T.CHECKPOINT_ON; player.respawnX = x*TILE_SIZE; player.respawnY = y*TILE_SIZE; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE, '#00FF00'); Sound.playSE('coin'); }
                 if(t===T.SPIKE) { if(intersect(obj, {x:x*TILE_SIZE+10, y:y*TILE_SIZE+10, w:20, h:20})) hitDamage(); }
                 // Ceiling Spike Logic Fixed: Die on jump hitting it
                 if(t===T.CEILING_SPIKE) { 
@@ -1349,8 +1550,8 @@ function checkCollisionX(obj) {
     for (let y = startY; y <= endY; y++) {
         for (let x = startX; x <= endX; x++) {
             const t = getTile(x, y);
-            if(t===T.COIN && obj===player) { levelMap[y][x] = T.EMPTY; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#FFD700'); }
-            if(obj===player && t===T.CHECKPOINT) { levelMap[y][x] = T.CHECKPOINT_ON; player.respawnX = x*TILE_SIZE; player.respawnY = y*TILE_SIZE; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE, '#00FF00'); }
+            if(t===T.COIN && obj===player) { levelMap[y][x] = T.EMPTY; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#FFD700'); Sound.playSE('coin'); }
+            if(obj===player && t===T.CHECKPOINT) { levelMap[y][x] = T.CHECKPOINT_ON; player.respawnX = x*TILE_SIZE; player.respawnY = y*TILE_SIZE; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE, '#00FF00'); Sound.playSE('coin'); }
             if(t===T.INVISIBLE_DEATH && obj===player) die();
             if(t===T.HIDDEN_TRIGGER || t===T.SKY_SPAWNER) {
                  if(t===T.SKY_SPAWNER) { spawnDebris(player.x); levelMap[y][x] = T.EMPTY; }
@@ -1359,11 +1560,8 @@ function checkCollisionX(obj) {
             if(t===T.HIDDEN_SPIKE && obj===player) { levelMap[y][x] = T.SPIKE; hitDamage(); }
             
             if (isSolid(t)) {
-                // Fix for Warp/Teleport Glitch:
-                // Instead of unconditionally snapping the player to the block edge, check overlap depth.
-                // If overlap is small (edge hit), snap. If overlap is large (spawned inside/vertical entry), do not snap.
                 let overlapX = 0;
-                let threshold = 16; // Threshold for "edge hit"
+                let threshold = 16; 
 
                 if (obj.vx > 0) { 
                     overlapX = (obj.x + obj.w) - (x * TILE_SIZE);
@@ -1395,8 +1593,9 @@ function handleHeadBump(x, y, t) {
         else if(rnd < 0.7) item = I.FAKE_STAR;
 
         spawnItem(x*TILE_SIZE, y*TILE_SIZE-30, item); 
+        Sound.playSE('bump');
     } else if(t===T.COIN_BLOCK) {
-        levelMap[y][x] = T.USED_BLOCK; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE-20, '#FFD700');
+        levelMap[y][x] = T.USED_BLOCK; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE-20, '#FFD700'); Sound.playSE('coin');
     } else if(t===T.MULTI_COIN_BLOCK || t===T.MEGA_COIN_BLOCK) {
         // Multi/Mega Coin Logic
         const key = `${currentLevel}_${x}_${y}`;
@@ -1408,6 +1607,7 @@ function handleHeadBump(x, y, t) {
         if(!activeCheats.infiniteCoins) gameData.coins++; 
         saveData(); 
         spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE-20, '#FFD700');
+        Sound.playSE('coin');
         
         if(activeBlocks[key] <= 0) levelMap[y][x] = T.USED_BLOCK;
     } else if(t===T.TRAP_COIN_BLOCK) {
@@ -1418,9 +1618,12 @@ function handleHeadBump(x, y, t) {
     } else if(t===T.HIDDEN || t===T.HIDDEN_TRIGGER || t===T.TROLL_HIDDEN) {
         levelMap[y][x] = T.FACE_BLOCK; 
         spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE+40, '#fff');
+        Sound.playSE('bump');
         if(player.vy < 0) { player.vy = 0; player.y = (y+1)*TILE_SIZE; }
     } else if(t===T.BLOCK && player.isBig) {
-        levelMap[y][x] = T.EMPTY; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE+20, currentTheme.block); if(player.vy<0) player.vy = 0;
+        levelMap[y][x] = T.EMPTY; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE+20, currentTheme.block); if(player.vy<0) player.vy = 0; Sound.playSE('break');
+    } else if(t===T.BLOCK) {
+        Sound.playSE('bump');
     }
 }
 
@@ -1448,7 +1651,7 @@ function updateItems() {
         if(it.vx===0) it.vx=(Math.random()>0.5?2:-2); 
         if(it.active && intersect(player, it)) { 
             if(it.type===I.MUSHROOM) { 
-                if(!player.isBig){player.isBig=true; player.y-=10; spawnParticles(player.x,player.y,'#ff0000');} 
+                if(!player.isBig){player.isBig=true; player.y-=10; spawnParticles(player.x,player.y,'#ff0000'); Sound.playSE('coin');} 
             } else if(it.type===I.POISON || it.type===I.FAKE_GOOD || it.type===I.FAKE_GREY || it.type===I.FAKE_STAR) {
                 die(); 
             } else if(it.type===I.FAKE || it.type===I.GREY) {
@@ -1459,12 +1662,14 @@ function updateItems() {
     } 
 }
 
-function hitDamage() { if(activeCheats.god || player.invincible>0) return; if(player.isBig){ player.isBig=false; player.invincible=120; player.vy=-5; spawnParticles(player.x,player.y,'#fff'); } else die(); }
+function hitDamage() { if(activeCheats.god || player.invincible>0) return; if(player.isBig){ player.isBig=false; player.invincible=120; player.vy=-5; spawnParticles(player.x,player.y,'#fff'); Sound.playSE('break'); } else die(); }
 
 function die() { 
     if(activeCheats.god || player.dead) return; 
     player.dead = true; player.vy = -12; isTimerRunning = false; trail.push(null); saveData(); 
+    Sound.playSE('dead');
     keys.left=false; keys.right=false; keys.jump=false; keys.down=false;
+    Sound.stopBGM();
     setTimeout(() => { 
         const cur = activeCheats.god ? '∞' : fmt(gameData.lives); 
         const nxt = activeCheats.god ? '∞' : fmt(gameData.lives - 1); 
@@ -1483,6 +1688,7 @@ function respawnPlayer() {
     if(gameData.lives < 0 && !allowNegativeLives) { showPanel('gameover-panel'); return; } 
     saveData(); resetLevel(false); 
     gameState = 'PLAYING'; 
+    Sound.playBGM();
     showPanel(null); 
     isTimerRunning = true; 
 }
@@ -1491,6 +1697,7 @@ function continueNegative() { allowNegativeLives = true; respawnPlayer(); }
 function levelClear() { 
     isTimerRunning = false; 
     gameState = 'CLEARED'; 
+    Sound.stopBGM();
     if(currentLevel >= gameData.maxReachedLevel && !activeCheats.unlock) { gameData.maxReachedLevel = currentLevel + 1; } 
     document.getElementById('result-time').innerText = formatTime(elapsedTime); 
     let isNewRecord = false; 

@@ -498,18 +498,15 @@ const Sound = {
         if(this.bgmInterval) return;
 
         // Modern Ambient Pad Generator
-        // Plays a chord sequence: Imaj7 -> IVmaj7 -> Vadd9 -> Imaj7
         const rootFreqs = [261.63, 349.23, 392.00, 261.63]; // C4, F4, G4, C4
         let step = 0;
 
         const playChord = () => {
             if(!gameData.settings.audio.bgm || gameState !== 'PLAYING') return;
             const root = rootFreqs[step % rootFreqs.length];
-            // Major 7th / Add9 intervals
             const freqs = [root, root * 1.25, root * 1.5, root * 1.875]; 
             
             freqs.forEach((f, i) => {
-                // Detuned oscillators for pad richness
                 this.createPadNote(f * 0.5, 3.5, 0.05); // Bass
                 this.createPadNote(f, 3.0, 0.03);       // Mid
                 setTimeout(() => this.createPadNote(f * 2, 2.5, 0.02), i * 100); // High Arp
@@ -526,22 +523,18 @@ const Sound = {
         const gain = this.ctx.createGain();
         const filter = this.ctx.createBiquadFilter();
 
-        osc.type = 'triangle'; // Softer than sawtooth
+        osc.type = 'triangle'; 
         osc.frequency.value = freq;
-        
-        // Slight detune for chorus effect
         osc.detune.value = (Math.random() - 0.5) * 15;
 
-        // Lowpass filter for warm pad sound
         filter.type = 'lowpass';
         filter.frequency.value = 600 + Math.random() * 400;
         filter.Q.value = 1;
 
-        // Slow attack and release envelope
         const now = this.ctx.currentTime;
         gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(vol, now + 1.0); // Attack
-        gain.gain.exponentialRampToValueAtTime(0.001, now + duration); // Release
+        gain.gain.linearRampToValueAtTime(vol, now + 1.0); 
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration); 
 
         osc.connect(filter);
         filter.connect(gain);
@@ -570,19 +563,18 @@ const Sound = {
         filter.connect(gain);
         gain.connect(this.masterGain);
 
-        // 音量を全体的に大きく修正
         if(type === 'jump') {
             osc.type = 'sine';
             osc.frequency.setValueAtTime(150, now);
             osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
-            gain.gain.setValueAtTime(0.3, now); // Increased
+            gain.gain.setValueAtTime(0.3, now); 
             gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
             osc.start(now); osc.stop(now + 0.15);
         } else if(type === 'coin') {
             osc.type = 'sine';
             osc.frequency.setValueAtTime(1200, now);
             osc.frequency.setValueAtTime(1800, now + 0.05);
-            gain.gain.setValueAtTime(0.25, now); // Increased
+            gain.gain.setValueAtTime(0.25, now); 
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
             osc.start(now); osc.stop(now + 0.5);
         } else if(type === 'break') {
@@ -592,13 +584,13 @@ const Sound = {
             filter.type = 'lowpass';
             filter.frequency.setValueAtTime(3000, now);
             filter.frequency.exponentialRampToValueAtTime(100, now + 0.1);
-            gain.gain.setValueAtTime(0.3, now); // Increased
+            gain.gain.setValueAtTime(0.3, now); 
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
             osc.start(now); osc.stop(now + 0.15);
         } else if(type === 'bump') {
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(80, now);
-            gain.gain.setValueAtTime(0.4, now); // Increased
+            gain.gain.setValueAtTime(0.4, now); 
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
             osc.start(now); osc.stop(now + 0.1);
         } else if(type === 'dead') {
@@ -608,9 +600,51 @@ const Sound = {
             filter.type = 'lowpass';
             filter.frequency.setValueAtTime(1000, now);
             filter.frequency.linearRampToValueAtTime(100, now + 1.0);
-            gain.gain.setValueAtTime(0.4, now); // Increased
+            gain.gain.setValueAtTime(0.4, now); 
             gain.gain.linearRampToValueAtTime(0, now + 1.0);
             osc.start(now); osc.stop(now + 1.0);
+        } else if(type === 'stomp') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(400, now);
+            osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+            osc.start(now); osc.stop(now + 0.1);
+        } else if(type === 'checkpoint') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1000, now);
+            osc.frequency.setValueAtTime(1500, now + 0.1);
+            gain.gain.setValueAtTime(0.25, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+            osc.start(now); osc.stop(now + 0.3);
+        } else if(type === 'item_spawn') {
+            // Item appears sound
+            osc.type = 'square'; 
+            osc.frequency.setValueAtTime(600, now);
+            osc.frequency.linearRampToValueAtTime(1200, now + 0.1);
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(2000, now);
+            gain.gain.setValueAtTime(0.25, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+            osc.start(now); osc.stop(now + 0.3);
+        } else if(type === 'clear') {
+            const notes = [523.25, 659.25, 783.99, 1046.50];
+            notes.forEach((freq, i) => {
+                const oscC = this.ctx.createOscillator();
+                const gainC = this.ctx.createGain();
+                oscC.type = 'triangle';
+                oscC.frequency.value = freq;
+                oscC.connect(gainC);
+                gainC.connect(this.masterGain);
+                
+                const t = now + i * 0.1;
+                gainC.gain.setValueAtTime(0, t);
+                gainC.gain.linearRampToValueAtTime(0.2, t + 0.05);
+                gainC.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+                
+                oscC.start(t);
+                oscC.stop(t + 0.4);
+            });
         }
     }
 };
@@ -637,18 +671,17 @@ let gameData = {
 let isFirstBoot = true; 
 
 // Load Save
-const saved = localStorage.getItem('panicCat_save_v17_audio_no_brick');
+const saved = localStorage.getItem('panicCat_save_v19_item_spawn');
 if(saved) { 
     try { 
         const parsed = JSON.parse(saved);
         gameData = { ...gameData, ...parsed };
-        // Ensure nested objects exist
         if(!gameData.settings) gameData.settings = {};
         if(!gameData.settings.audio) gameData.settings.audio = { bgm: true, se: true };
         isFirstBoot = false;
     } catch(e){} 
 }
-function saveData() { localStorage.setItem('panicCat_save_v17_audio_no_brick', JSON.stringify(gameData)); }
+function saveData() { localStorage.setItem('panicCat_save_v19_item_spawn', JSON.stringify(gameData)); }
 
 // Themes
 const THEMES = [
@@ -1063,7 +1096,7 @@ function retryGame() {
 
 function resetAllData() {
     if(confirm("本当に全てのデータを初期化しますか？")) {
-        localStorage.removeItem('panicCat_save_v17_audio_no_brick');
+        localStorage.removeItem('panicCat_save_v19_item_spawn');
         location.reload();
     }
 }
@@ -1469,12 +1502,13 @@ function updateEnemies() {
             if (player.vy > 0 && player.y + player.h < e.y + e.h / 2 + 10) {
                 e.dead = true; player.vy = -8; spawnParticles(e.x, e.y, '#8B4513');
                 if(!activeCheats.infiniteCoins) gameData.coins += 5;
+                Sound.playSE('stomp');
             } else { hitDamage(); }
         }
     }
 }
 
-function startGoalAnim() { gameState = 'GOAL_ANIM'; player.vx = 0; player.vy = 0; player.x = goalPole.x - 10; isTimerRunning = false; Sound.stopBGM(); }
+function startGoalAnim() { gameState = 'GOAL_ANIM'; player.vx = 0; player.vy = 0; player.x = goalPole.x - 10; isTimerRunning = false; Sound.stopBGM(); Sound.playSE('clear'); }
 function updateGoalAnim() { 
     if(player.y < goalPole.y + goalPole.h - player.h) player.y += 4; 
     else { 
@@ -1496,7 +1530,7 @@ function checkCollisionY(obj) {
             const t = getTile(x, y);
             if(obj===player) {
                 if(t===T.COIN) { levelMap[y][x] = T.EMPTY; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#FFD700'); Sound.playSE('coin'); }
-                if(t===T.CHECKPOINT) { levelMap[y][x] = T.CHECKPOINT_ON; player.respawnX = x*TILE_SIZE; player.respawnY = y*TILE_SIZE; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE, '#00FF00'); Sound.playSE('coin'); }
+                if(t===T.CHECKPOINT) { levelMap[y][x] = T.CHECKPOINT_ON; player.respawnX = x*TILE_SIZE; player.respawnY = y*TILE_SIZE; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE, '#00FF00'); Sound.playSE('checkpoint'); }
                 if(t===T.SPIKE) { if(intersect(obj, {x:x*TILE_SIZE+10, y:y*TILE_SIZE+10, w:20, h:20})) hitDamage(); }
                 // Ceiling Spike Logic Fixed: Die on jump hitting it
                 if(t===T.CEILING_SPIKE) { 
@@ -1551,7 +1585,7 @@ function checkCollisionX(obj) {
         for (let x = startX; x <= endX; x++) {
             const t = getTile(x, y);
             if(t===T.COIN && obj===player) { levelMap[y][x] = T.EMPTY; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20,y*TILE_SIZE+20,'#FFD700'); Sound.playSE('coin'); }
-            if(obj===player && t===T.CHECKPOINT) { levelMap[y][x] = T.CHECKPOINT_ON; player.respawnX = x*TILE_SIZE; player.respawnY = y*TILE_SIZE; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE, '#00FF00'); Sound.playSE('coin'); }
+            if(obj===player && t===T.CHECKPOINT) { levelMap[y][x] = T.CHECKPOINT_ON; player.respawnX = x*TILE_SIZE; player.respawnY = y*TILE_SIZE; spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE, '#00FF00'); Sound.playSE('checkpoint'); }
             if(t===T.INVISIBLE_DEATH && obj===player) die();
             if(t===T.HIDDEN_TRIGGER || t===T.SKY_SPAWNER) {
                  if(t===T.SKY_SPAWNER) { spawnDebris(player.x); levelMap[y][x] = T.EMPTY; }
@@ -1593,7 +1627,7 @@ function handleHeadBump(x, y, t) {
         else if(rnd < 0.7) item = I.FAKE_STAR;
 
         spawnItem(x*TILE_SIZE, y*TILE_SIZE-30, item); 
-        Sound.playSE('bump');
+        Sound.playSE('item_spawn');
     } else if(t===T.COIN_BLOCK) {
         levelMap[y][x] = T.USED_BLOCK; if(!activeCheats.infiniteCoins) gameData.coins++; saveData(); spawnParticles(x*TILE_SIZE+20, y*TILE_SIZE-20, '#FFD700'); Sound.playSE('coin');
     } else if(t===T.MULTI_COIN_BLOCK || t===T.MEGA_COIN_BLOCK) {
